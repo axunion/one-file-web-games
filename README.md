@@ -18,6 +18,6 @@ Open `games/<name>.html` in a browser. Games are designed for a mobile viewport.
 
 ## Adding a game
 
-Every game must comply with [`docs/regulation.md`](docs/regulation.md). Development is
-implementation-first: build `games/<name>.html` and verify it against the
-Compliance Checklist.
+Every game follows [`docs/regulation.md`](docs/regulation.md) (MUST rules are mandatory,
+SHOULD principles are guidelines). Development is implementation-first: build
+`games/<name>.html` and verify it against the Compliance Checklist.

@@ -1,27 +1,38 @@
 # Game Regulation
 
-Every game in this repository MUST comply with all rules below. This document is the
-single source of truth for cross-game constraints; per-game behavior is defined by the
-implementation itself.
+Cross-game constraints for every game in this repository. Per-game behavior is defined
+by the implementation itself.
 
 ## Purpose & Scope
 
 This repository is a collection of mini games in the style of mobile playable ads:
-instantly understandable, instantly playable, short-session games. The rules are modeled
-on common playable-ad constraints (self-contained single file, no network, instant play)
-but the games are for browser play, not actual ad-network submission.
+instantly understandable, instantly playable, bite-sized. The rules are modeled on common
+playable-ad constraints (self-contained single file, no network, instant play) but the
+games are for browser play, not actual ad-network submission. Any genre fits, including
+action and puzzle games, as long as it keeps that spirit.
 
-## File Constraints
+Rules come in two strengths:
+
+- **MUST**: technical and UX constraints that are objectively verifiable and independent
+  of genre. Every game satisfies all of them.
+- **SHOULD**: experience principles that keep the playable-ad feel. Numbers are
+  guidelines, not limits. A game that deviates keeps working as long as the deviation
+  is intentional: state it in one line in an HTML comment right after `<!DOCTYPE html>`,
+  e.g. `<!-- SHOULD deviation: short rounds - a full puzzle takes about 5 minutes -->`.
+
+## MUST
+
+### File Constraints
 
 - One game = one file `games/<game-name>.html`, where `<game-name>` is kebab-case.
 - All HTML, CSS, and JavaScript live inline in that file. No separate `.css`/`.js`
-  files, no build step. The file must run when opened directly in a browser
-  (`file://` and any static server).
+  files, no build step. The file runs when opened directly in a browser (`file://` and
+  any static server).
 - Maximum file size: **512 KB**.
 - Encoding is UTF-8 with `<meta charset="utf-8">`, and the file starts with
   `<!DOCTYPE html>`.
 
-## No External Dependencies
+### No External Dependencies
 
 - **Zero network requests.** No CDNs, web fonts, external images, analytics, `fetch`,
   `XMLHttpRequest`, or WebSockets.
@@ -29,49 +40,57 @@ but the games are for browser play, not actual ad-network submission.
 - All assets are generated in code: Canvas drawing, inline SVG, data URIs, CSS shapes,
   and Web Audio API synthesis. System fonts only.
 
-## Mobile-First UX
+### Mobile-First UX
 
-- Design for portrait orientation on a phone; fill the full viewport and scale
+- Designed for portrait orientation on a phone; fills the full viewport and scales
   responsively to any screen size, including desktop.
-- Touch is the primary input. Every action must also work with mouse click/drag so the
-  game is fully playable on desktop.
-- Prevent page scrolling, pinch zoom, double-tap zoom, text selection, and touch
-  callouts during play. Respect safe-area insets on notched devices.
+- Touch is the primary input. Every action also works with mouse click/drag.
+- Page scrolling, pinch zoom, double-tap zoom, text selection, and touch callouts are
+  suppressed during play. Safe-area insets are respected on notched devices.
 
-## Instant Play
+### Performance
 
-- Playable within 3 seconds of load. No loading screens, menus, or settings before play.
-- Instructions fit in one short line (e.g. "Tap to jump") or are unnecessary because the
-  first interaction teaches the game.
-- One tap starts the game. After a game over, one tap restarts it immediately.
+- Targets 60 fps on a mid-range phone, with animation driven by `requestAnimationFrame`.
 
-## Game Design
+### Audio
 
-- Hyper-casual core loop: one simple verb (tap, swipe, hold, drag), an obvious goal, and
-  a clear fail condition.
-- A session lasts roughly 30 seconds to 2 minutes.
-- Show a score or equally clear progress indicator at all times during play.
+- Audio is optional. If present, it is synthesized with the Web Audio API, starts only
+  after a user gesture (autoplay policy), and is mutable via an in-game toggle.
 
-## Performance
+### Persistence
 
-- Target 60 fps on a mid-range phone. Drive animation with `requestAnimationFrame`.
-- Keep per-frame allocations and DOM/layout work minimal; prefer Canvas for
-  motion-heavy games.
+- `localStorage` may store only the best record (high score, or an equivalent such as
+  fewest moves), under the key `ofwg:<game-name>` (e.g. `ofwg:neko-jump`). No other
+  client-side storage and no mid-game save state.
+- The game works normally when storage is unavailable.
 
-## Audio
+## SHOULD
 
-- Audio is optional. If present, it must be synthesized with the Web Audio API, start
-  only after a user gesture (autoplay policy), and be mutable via an in-game toggle.
+Each principle lists its intent, so a deviation can be judged against it.
 
-## Persistence
-
-- `localStorage` may be used only to store the high score, under the key
-  `ofwg:<game-name>` (e.g. `ofwg:neko-jump`). No other client-side storage.
-- The game must work normally when storage is unavailable.
+- **Instant play**: playable within about 3 seconds of load, with no loading screens,
+  menus, or settings first, and one tap to start. *Intent: zero friction before the
+  first interaction.*
+- **Self-explanatory**: instructions fit in one short line (e.g. "Tap to jump") or the
+  first interaction teaches the game. *Intent: no tutorial to read.*
+- **Short rounds**: a round lasts from tens of seconds to a few minutes. *Intent: easy to
+  play in a spare moment and to replay.*
+- **Simple input**: one or two verbs (tap, swipe, hold, drag). *Intent: the whole control
+  scheme is understood at a glance.*
+- **Clear end condition**: the game ends by an obvious fail or clear condition. *Intent:
+  the player always knows what they are working toward.*
+- **Visible progress**: a score or equally clear progress indicator is shown during
+  play. *Intent: feedback on how the player is doing.*
+- **Instant retry**: one tap restarts after the game ends. *Intent: "one more try"
+  without friction.*
+- **Lean frames**: minimal per-frame allocations and DOM/layout work; prefer Canvas for
+  motion-heavy games. *Intent: keep the 60 fps MUST cheap to meet.*
 
 ## Compliance Checklist
 
-Copy this checklist when verifying a finished game and confirm every item:
+Copy this checklist when verifying a finished game and confirm every item. SHOULD
+principles have no checklist: judge them by playing the game, and note any intentional
+deviation in a comment right after `<!DOCTYPE html>`.
 
 - [ ] Single `games/<game-name>.html` with all CSS/JS inline; opens directly in a browser
 - [ ] The file is 512 KB or less
@@ -81,9 +100,7 @@ Copy this checklist when verifying a finished game and confirm every item:
 - [ ] Portrait mobile layout fills the viewport and scales to desktop
 - [ ] Fully playable with both touch and mouse
 - [ ] Scroll/zoom/text-selection suppressed during play
-- [ ] Playable within 3 seconds; instructions ≤ 1 line; tap to start
-- [ ] One tap restarts after game over
-- [ ] Score or clear progress visible during play
 - [ ] Smooth (~60 fps) animation via `requestAnimationFrame`
 - [ ] Audio (if any) starts only after a user gesture and can be muted
-- [ ] `localStorage` limited to `ofwg:<game-name>` high score; game works without it
+- [ ] `localStorage` limited to a best record under `ofwg:<game-name>`; game works
+      without it
