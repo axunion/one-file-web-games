@@ -18,4 +18,23 @@ The implementation is the only source of truth; do not write per-game spec docum
 
 - **Testing policy**: No test framework for the single-file games. Verification is the
   Compliance Checklist plus real play in a browser — do not ask about introducing a
-  test setup for game implementations.
+  test setup for game implementations. The scriptable MUST checks run through the
+  `tester` agent as shell commands; feel, balance, and layout are judged by playing the
+  game with the user, and no script replaces that.
+
+## Subagents
+
+The main conversation writes all code at every tier; there is no implementer agent.
+`reviewer` and `tester` (in `.claude/agents/`) are read-only or check-only, so they run
+without asking. Use the built-in `Explore` for codebase lookups.
+
+- **Trivial** (typo, one-line fix, config tweak): implement directly, no agents.
+- **Non-trivial** (a new game, a gameplay change, a doc change): implement directly,
+  then run `reviewer` and `tester` in parallel.
+- **Large** (changes across several games or to `docs/regulation.md` as a whole):
+  propose that the user drive it with `/goal`, with a completion condition that requires
+  `reviewer` to report no findings and `tester`'s checks to pass. That covers only the
+  objective part; feel and balance are still tuned by playing with the user.
+
+Visual checks have no agent: the main conversation plays the game in a browser with a
+mobile viewport, as in the Verify step.
