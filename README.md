@@ -7,20 +7,17 @@ self-contained HTML file.
 
 ```
 docs/
-  regulation.md      Cross-game regulation (English) — single source of truth
-  spec-template.md   Spec template (Japanese) — copy to start a new game
+  regulation.md              Cross-game regulation — single source of truth
 games/
-  <kebab-case-name>/
-    spec.md          Game specification (Japanese)
-    index.html       Complete game in a single self-contained file
+  <kebab-case-name>.html     Complete game in a single self-contained file
 ```
 
 ## Playing
 
-Open `games/<name>/index.html` in a browser. Games are designed for a mobile viewport.
+Open `games/<name>.html` in a browser. Games are designed for a mobile viewport.
 
 ## Adding a game
 
 Every game must comply with [`docs/regulation.md`](docs/regulation.md). Development is
-spec-first: copy `docs/spec-template.md` to `games/<name>/spec.md`, get the spec
-approved, then implement `index.html`.
+implementation-first: build `games/<name>.html` and verify it against the
+Compliance Checklist.

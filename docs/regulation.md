@@ -1,8 +1,8 @@
 # Game Regulation
 
 Every game in this repository MUST comply with all rules below. This document is the
-single source of truth for cross-game constraints; per-game requirements live in each
-game's `spec.md`.
+single source of truth for cross-game constraints; per-game behavior is defined by the
+implementation itself.
 
 ## Purpose & Scope
 
@@ -13,13 +13,11 @@ but the games are for browser play, not actual ad-network submission.
 
 ## File Constraints
 
-- One game = one directory `games/<kebab-case-name>/` containing exactly:
-  - `spec.md` — the game's specification (Japanese)
-  - `index.html` — the complete game in a single file
-- All HTML, CSS, and JavaScript live inline in `index.html`. No separate `.css`/`.js`
+- One game = one file `games/<game-name>.html`, where `<game-name>` is kebab-case.
+- All HTML, CSS, and JavaScript live inline in that file. No separate `.css`/`.js`
   files, no build step. The file must run when opened directly in a browser
   (`file://` and any static server).
-- Maximum file size: **512 KB** for `index.html`.
+- Maximum file size: **512 KB**.
 - Encoding is UTF-8 with `<meta charset="utf-8">`, and the file starts with
   `<!DOCTYPE html>`.
 
@@ -75,8 +73,8 @@ but the games are for browser play, not actual ad-network submission.
 
 Copy this checklist when verifying a finished game and confirm every item:
 
-- [ ] Single `index.html` with all CSS/JS inline; opens directly in a browser
-- [ ] `index.html` is 512 KB or less
+- [ ] Single `games/<game-name>.html` with all CSS/JS inline; opens directly in a browser
+- [ ] The file is 512 KB or less
 - [ ] `<!DOCTYPE html>` and UTF-8 charset declared
 - [ ] Zero network requests (verified in DevTools Network tab)
 - [ ] No frameworks or libraries; all assets generated in code
