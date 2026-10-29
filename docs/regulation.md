@@ -51,6 +51,11 @@ Rules come in two strengths:
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5H23C27.5 5 30 7.5 31 12L31.5 21C31.8 25 30 27.5 27 27.5C24.5 27.5 23.5 26 22.5 24L21.5 22H10.5L9.5 24C8.5 26 7.5 27.5 5 27.5C2 27.5 0.2 25 0.5 21L1 12C2 7.5 4.5 5 9 5Z' fill='%23ff6b4a'/%3E%3Cpath d='M9 10.5v7M5.5 14h7' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='21.5' cy='15.5' r='2.2' fill='%23fff'/%3E%3Ccircle cx='26' cy='12' r='2.2' fill='%23fff'/%3E%3C/svg%3E">
   ```
 
+### Original Content
+
+- No third-party names, characters, logos, trademarks, or assets, including look-alikes.
+  Everything the player sees and reads is created for the game.
+
 ### Mobile-First UX
 
 - Designed for portrait orientation on a phone; fills the full viewport and scales
@@ -96,6 +101,15 @@ Each principle lists its intent, so a deviation can be judged against it.
   without friction.*
 - **Lean frames**: minimal per-frame allocations and DOM/layout work; prefer Canvas for
   motion-heavy games. *Intent: keep the 60 fps MUST cheap to meet.*
+- **Original identity**: each game has its own world, and its palette, character design,
+  title, and wording follow from that world. State the world and the reasoning behind
+  the palette in one line in an HTML comment right after `<!DOCTYPE html>`, e.g.
+  `<!-- World: night-festival stall - lantern reds and warm golds on indigo -->`. Genre
+  conventions, mechanics, controls, and feel numbers are free to borrow, and so is
+  plumbing code such as audio and input. The visual identity is not: do not carry
+  palette, HUD styling, or character design over from another game, sibling games in
+  this repository included. *Intent: players recognize each game as its own world, and
+  the collection does not read as one skin repeated.*
 
 ## Compliance Checklist
 
@@ -109,6 +123,7 @@ deviation in a comment right after `<!DOCTYPE html>`.
 - [ ] Zero network requests (verified in DevTools Network tab)
 - [ ] No frameworks or libraries; all assets generated in code
 - [ ] Shared favicon tag present verbatim right after `<title>`
+- [ ] No third-party names, characters, logos, trademarks, or assets
 - [ ] Portrait mobile layout fills the viewport and scales to desktop
 - [ ] Fully playable with both touch and mouse
 - [ ] Scroll/zoom/text-selection suppressed during play

@@ -26,7 +26,11 @@ change, to address.
    by reading the code. A SHOULD principle the game departs from is acceptable only if
    a one-line `<!-- SHOULD deviation: ... -->` comment right after `<!DOCTYPE html>`
    states it; flag a departure without that comment. That comment is required by the
-   regulation, so never flag it under the comments check below.
+   regulation, so never flag it under the comments check below. The "Original identity"
+   principle is checked here too: compare the game's palette, HUD styling, and character
+   design against the other games in `src/` and flag copied visual tokens, and flag a
+   missing `<!-- World: ... -->` comment. Its `World` comment is also required by the
+   regulation, so never flag it under the comments check.
 5. **Correctness**: read the actual logic, especially these concerns, which are easy to
    get subtly wrong in a single-file game:
    - input handling: touch and mouse parity, no pointer event handled twice, scroll,
