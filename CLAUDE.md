@@ -6,7 +6,7 @@ deviated from intentionally (noted in a top-of-file comment).
 
 ## Development Flow (implementation-first)
 
-1. **Implement**: Build `games/<name>.html` directly from the user's idea,
+1. **Implement**: Build `src/<name>/index.html` directly from the user's idea,
    following `docs/regulation.md`. Iterate on feel and balance with the user.
 2. **Verify**: Walk through the MUST Compliance Checklist in `docs/regulation.md` and
    actually play the game in a browser with a mobile viewport, judging it against the

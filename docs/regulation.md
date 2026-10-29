@@ -24,10 +24,12 @@ Rules come in two strengths:
 
 ### File Constraints
 
-- One game = one file `games/<game-name>.html`, where `<game-name>` is kebab-case.
-- All HTML, CSS, and JavaScript live inline in that file. No separate `.css`/`.js`
-  files, no build step. The file runs when opened directly in a browser (`file://` and
-  any static server).
+- One game = one directory `src/<game-name>/` holding a single `index.html`, where
+  `<game-name>` is kebab-case. With `src/` as the site root, the game is served at
+  `/<game-name>/`.
+- All HTML, CSS, and JavaScript live inline in that `index.html`. No separate
+  `.css`/`.js` files, no build step. The file runs when opened directly in a browser
+  (`file://` and any static server).
 - Maximum file size: **512 KB**.
 - Encoding is UTF-8 with `<meta charset="utf-8">`, and the file starts with
   `<!DOCTYPE html>`.
@@ -92,8 +94,8 @@ Copy this checklist when verifying a finished game and confirm every item. SHOUL
 principles have no checklist: judge them by playing the game, and note any intentional
 deviation in a comment right after `<!DOCTYPE html>`.
 
-- [ ] Single `games/<game-name>.html` with all CSS/JS inline; opens directly in a browser
-- [ ] The file is 512 KB or less
+- [ ] Single `src/<game-name>/index.html` with all CSS/JS inline; opens directly in a browser
+- [ ] `index.html` is 512 KB or less
 - [ ] `<!DOCTYPE html>` and UTF-8 charset declared
 - [ ] Zero network requests (verified in DevTools Network tab)
 - [ ] No frameworks or libraries; all assets generated in code

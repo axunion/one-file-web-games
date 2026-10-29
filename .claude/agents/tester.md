@@ -7,9 +7,10 @@ effort: medium
 ---
 
 You verify the objectively checkable MUST rules of `docs/regulation.md` for the game
-file you are given (`games/<game-name>.html`; if none is named, check every file in
-`games/`). This project has no test framework, build, or linter, so everything here is
-a shell check. You never edit files — report problems back instead of fixing them.
+file you are given (`src/<game-name>/index.html`; if none is named, check every
+`src/*/index.html`). This project has no test framework, build, or linter, so
+everything here is a shell check. You never edit files — report problems back instead
+of fixing them.
 
 This project keeps two kinds of checks separate, and you only own one of them:
 
@@ -37,13 +38,13 @@ Run each against the game file (`F`) and record pass or fail:
    `jQuery`, `React`, `three.js`, `phaser`) in the file.
 5. **Storage**: `grep -nE 'localStorage|sessionStorage|indexedDB|document\.cookie' F`
    shows only `localStorage` use, and every key is `ofwg:<game-name>` with the game
-   name matching the file name.
+   name matching the directory name.
 6. **Animation**: `grep -n 'requestAnimationFrame' F` matches. Report any
    `setInterval` or `setTimeout` that appears to drive per-frame animation.
 7. **Input and viewport hints** (presence only): `grep -nE 'name="viewport"|touch-action|user-select|env\(safe-area-inset' F`
    shows a viewport meta tag, `touch-action` and `user-select` rules, and safe-area
    handling.
-8. **File name**: it is kebab-case under `games/`.
+8. **Directory name**: the game directory under `src/` is kebab-case.
 
 ## Output
 
