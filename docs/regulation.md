@@ -13,8 +13,8 @@ action and puzzle games, as long as it keeps that spirit.
 
 Rules come in two strengths:
 
-- **MUST**: technical and UX constraints that are objectively verifiable and independent
-  of genre. Every game satisfies all of them.
+- **MUST**: technical and UX constraints that can be verified by a script, a review, or
+  play, and are independent of genre. Every game satisfies all of them.
 - **SHOULD**: experience principles that keep the playable-ad feel. Numbers are
   guidelines, not limits. A game that deviates keeps working as long as the deviation
   is intentional: state it in one line in an HTML comment right after `<!DOCTYPE html>`,
@@ -53,8 +53,9 @@ Rules come in two strengths:
 
 ### Original Content
 
-- No third-party names, characters, logos, trademarks, or assets, including look-alikes.
-  Everything the player sees and reads is created for the game.
+- No third-party names, characters, logos, trademarks, or assets, and no close
+  imitations of them. Everything the player sees and reads is created for the game.
+  This is checked in review, not by script.
 
 ### Mobile-First UX
 
@@ -63,6 +64,10 @@ Rules come in two strengths:
 - Touch is the primary input. Every action also works with mouse click/drag.
 - Page scrolling, pinch zoom, double-tap zoom, text selection, and touch callouts are
   suppressed during play. Safe-area insets are respected on notched devices.
+- Icons on controls (restart, sound, and the like) are drawn as inline SVG or on the
+  canvas, never as text glyphs, symbols, or emoji. System fonts render such characters
+  at different sizes and weights per environment, and may swap in color emoji, so the
+  result cannot be controlled. Plain ASCII text labels such as "New game" are fine.
 
 ### Performance
 
@@ -82,7 +87,8 @@ Rules come in two strengths:
 
 ## SHOULD
 
-Each principle lists its intent, so a deviation can be judged against it.
+Each principle lists its intent, so a deviation can be judged against it. Original
+identity is the one principle every game states positively, with a `World` comment.
 
 - **Instant play**: playable within about 3 seconds of load, with no loading screens,
   menus, or settings first, and one tap to start. *Intent: zero friction before the
@@ -104,7 +110,7 @@ Each principle lists its intent, so a deviation can be judged against it.
 - **Original identity**: each game has its own world, and its palette, character design,
   title, and wording follow from that world. State the world and the reasoning behind
   the palette in one line in an HTML comment right after `<!DOCTYPE html>`, e.g.
-  `<!-- World: night-festival stall - lantern reds and warm golds on indigo -->`. Genre
+  `<!-- World: seaside fish market - salt-washed blues and sunny yellows -->`. Genre
   conventions, mechanics, controls, and feel numbers are free to borrow, and so is
   plumbing code such as audio and input. The visual identity is not: do not carry
   palette, HUD styling, or character design over from another game, sibling games in
@@ -114,10 +120,11 @@ Each principle lists its intent, so a deviation can be judged against it.
 ## Compliance Checklist
 
 Copy this checklist when verifying a finished game and confirm every item. SHOULD
-principles have no checklist: judge them by playing the game, and note any intentional
-deviation in a comment right after `<!DOCTYPE html>`.
+principles have no checklist: judge them by playing the game, note any intentional
+deviation in a comment right after `<!DOCTYPE html>`, and confirm the `World` comment
+from Original identity is there.
 
-- [ ] Single `src/<game-name>/index.html` with all CSS/JS inline; opens directly in a browser
+- [ ] Single kebab-case `src/<game-name>/index.html` with all CSS/JS inline; opens directly in a browser
 - [ ] `index.html` is 512 KB or less
 - [ ] `<!DOCTYPE html>` and UTF-8 charset declared
 - [ ] Zero network requests (verified in DevTools Network tab)
@@ -126,7 +133,9 @@ deviation in a comment right after `<!DOCTYPE html>`.
 - [ ] No third-party names, characters, logos, trademarks, or assets
 - [ ] Portrait mobile layout fills the viewport and scales to desktop
 - [ ] Fully playable with both touch and mouse
-- [ ] Scroll/zoom/text-selection suppressed during play
+- [ ] Scroll, zoom, text selection, and touch callouts suppressed during play
+- [ ] Safe-area insets respected on notched devices
+- [ ] Control icons are inline SVG or canvas drawings, not text glyphs or emoji
 - [ ] Smooth (~60 fps) animation via `requestAnimationFrame`
 - [ ] Audio (if any) starts only after a user gesture and can be muted
 - [ ] `localStorage` limited to a best record under `ofwg:<game-name>`; game works

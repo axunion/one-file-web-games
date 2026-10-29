@@ -1,6 +1,6 @@
 ---
 name: tester
-description: Runs the scriptable part of the docs/regulation.md MUST checklist against a game file — size, DOCTYPE and charset, network and storage greps — and reports which MUST items it cannot verify. Use proactively after any non-trivial change to a game, alongside the reviewer agent. Read-only; never edits files.
+description: Runs the scriptable part of the docs/regulation.md MUST checklist against a game file — size, DOCTYPE and charset, network, storage, and icon-glyph greps — and reports which MUST items it cannot verify. Use proactively after any non-trivial change to a game, alongside the reviewer agent. Read-only; never edits files.
 tools: Bash, Read
 model: haiku
 effort: medium
@@ -56,6 +56,13 @@ Run each against the game file (`F`) and record pass or fail:
    TAG=$(grep -m1 '^  <link rel="icon"' docs/regulation.md | sed 's/^  //')
    awk '/<\/title>/{getline n; print n; exit}' F | grep -qxF -- "$TAG" && echo pass || echo FAIL
    ```
+
+10. **Control icons**: no text glyph, symbol, or emoji stands in for an icon.
+    `grep -nP '[^\x00-\x7F]' F | grep -vF '<link rel="icon" href="data:image/svg+xml,'`
+    lists every non-ASCII character outside the shared favicon line. A hit inside a
+    `<button>` or other control's markup fails. A hit elsewhere (for example a `×` in
+    text drawn on the canvas) is reported with its line for the calling conversation to
+    judge.
 
 ## Output
 
