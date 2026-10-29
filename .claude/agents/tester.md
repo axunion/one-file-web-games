@@ -33,7 +33,11 @@ Run each against the game file (`F`) and record pass or fail:
    `grep -i '<meta charset="utf-8"' F` matches.
 3. **No network**: `grep -nE 'https?://|fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|<script[^>]*src=|<link[^>]*href=|@import|import\(' F`
    finds nothing that loads a resource. An `xmlns="http://www.w3.org/2000/svg"`
-   attribute on inline SVG is not a request; report any other hit with its line.
+   attribute on inline SVG is not a request, and neither is the shared favicon line
+   (`<link rel="icon" href="data:image/svg+xml,…`), which matches on its `<link href=`
+   and its single-quoted `xmlns`: pipe the grep through
+   `grep -vF '<link rel="icon" href="data:image/svg+xml,'`. Report any other hit with
+   its line.
 4. **No libraries**: no `<script src=` and no bundled library banner (for example
    `jQuery`, `React`, `three.js`, `phaser`) in the file.
 5. **Storage**: `grep -nE 'localStorage|sessionStorage|indexedDB|document\.cookie' F`
@@ -45,6 +49,13 @@ Run each against the game file (`F`) and record pass or fail:
    shows a viewport meta tag, `touch-action` and `user-select` rules, and safe-area
    handling.
 8. **Directory name**: the game directory under `src/` is kebab-case.
+9. **Favicon**: the line right after `</title>` equals the shared tag in
+   `docs/regulation.md`. Also run this check on the table-of-contents page
+   `src/index.html`, which is not a game but carries the same tag:
+   ```sh
+   TAG=$(grep -m1 '^  <link rel="icon"' docs/regulation.md | sed 's/^  //')
+   awk '/<\/title>/{getline n; print n; exit}' F | grep -qxF -- "$TAG" && echo pass || echo FAIL
+   ```
 
 ## Output
 
