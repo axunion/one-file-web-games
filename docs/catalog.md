@@ -19,7 +19,7 @@ a card needs no CSS change.
 ## Thumbnail
 
 - Draw it with SVG shapes only (no image files, no network) and keep it to the
-  game's core object, e.g. the tiles, the skewer, the yarn.
+  game's core object, e.g. the tiles, the tether, the yarn.
 - Use the game's own palette, starting with its background color as the full-bleed
   `<rect>`, so the card previews the game's world.
 - Keep the subject centered with margin to the edges; the card clips with rounded
