@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<!-- World: sunlit living room - a black cat on a sage rug over honey wood floorboards, yarn in wool-dye colors -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Knotty Paws</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5H23C27.5 5 30 7.5 31 12L31.5 21C31.8 25 30 27.5 27 27.5C24.5 27.5 23.5 26 22.5 24L21.5 22H10.5L9.5 24C8.5 26 7.5 27.5 5 27.5C2 27.5 0.2 25 0.5 21L1 12C2 7.5 4.5 5 9 5Z' fill='%23ff6b4a'/%3E%3Cpath d='M9 10.5v7M5.5 14h7' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='21.5' cy='15.5' r='2.2' fill='%23fff'/%3E%3Ccircle cx='26' cy='12' r='2.2' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root { --ink: #4a3226; --cream: #fbf1da; --mustard: #f0b429; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; color: var(--ink);
+    background: #dcae72 repeating-linear-gradient(90deg, #dcae72 0 52px, #c99a5e 52px 54px);
+    font-family: "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    touch-action: none; overscroll-behavior: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #hud {
+    position: fixed; z-index: 1; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 16px) 0 calc(env(safe-area-inset-left) + 16px);
+    max-width: 560px; margin: 0 auto;
+  }
+  #tally {
+    min-width: 120px; padding: 4px 18px 5px; text-align: center; background: var(--cream);
+    border: 2px dashed var(--ink); border-radius: 14px; box-shadow: 0 3px 0 rgba(74, 50, 38, .3);
+  }
+  #tally b { display: block; font-size: 34px; line-height: 1.1; }
+  #tally small { font-size: 11px; letter-spacing: .18em; opacity: .7; }
+  button {
+    width: 42px; height: 42px; border: 0; border-radius: 12px; background: var(--cream); color: var(--ink);
+    padding: 0; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 rgba(74, 50, 38, .3);
+  }
+  button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  button svg .solid { fill: currentColor; stroke-width: 1; }
+  .x { display: none; }
+  #snd.off .x { display: inline; }
+  #snd.off .wave { display: none; }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(74, 50, 38, .3); }
+  #snd.off { opacity: .55; }
+  #hint {
+    position: fixed; left: 50%; top: 36%; transform: translateX(-50%); width: max-content; max-width: 84vw;
+    padding: 9px 18px; border-radius: 14px; background: var(--cream); border: 2px dashed var(--ink);
+    text-align: center; font-size: 16px; line-height: 1.35; pointer-events: none;
+  }
+  #over {
+    position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; background: rgba(60, 38, 28, .72); cursor: pointer;
+  }
+  #over.show { display: flex; }
+  #over h1 {
+    margin: 0; padding: 8px 28px; background: var(--mustard); color: var(--ink); border-radius: 999px;
+    font-size: 32px; letter-spacing: .06em; transform: rotate(2deg); box-shadow: 0 4px 0 rgba(0, 0, 0, .25);
+  }
+  #over p { margin: 0; font-size: 26px; color: var(--cream); }
+  #over .tap { padding: 6px 18px; border-radius: 12px; background: var(--cream); color: var(--ink); font-size: 15px; letter-spacing: .08em; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud">
+  <button id="rst" aria-label="Restart"><svg viewBox="0 0 24 24"><path d="M5.2 12a6.8 6.8 0 1 0 2-4.8"/><path class="solid" d="M4.2 3.6v5.4h5.4z"/></svg></button>
+  <div id="tally"><b id="score">0</b><small>BEST <span id="best">0</span></small></div>
+  <button id="snd" aria-label="Sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+</div>
+<div id="hint">Swipe to steer · loop thread around yarn</div>
+<div id="over"><h1 id="title"></h1><p id="final"></p><p class="tap">Tap to retry</p></div>
+
+<script>
+(() => {
+  const COLS = 11, ROWS = 18;
+  const KEY = 'ofwg:knotty-paws';
+  const FOODS = 5, GROW = 3, SWIPE_PX = 16;
+  // step time falls from START_MS to MIN_MS as yarn is taken; a puddle drips every PUDDLE_EVERY steps
+  const START_MS = 230, MIN_MS = 140, RAMP_MS = 2;
+  const PUDDLE_EVERY = 20, PUDDLE_MAX = 9, PUDDLE_GAP = 4;
+  const PARTICLE_MS = 600, GHOST_MS = 380, RING_MS = 320, POPUP_MS = 800, KNOT_MS = 380;
+  const PALETTE = ['#d8572f', '#1f8a96', '#ee8fb6', '#74429c'];
+  const DARK = PALETTE.map(hex => {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgb(${[n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * 0.7))})`;
+  });
+  const FUR = '#3a3646', WATER = '#8cc8e6', WATER_LIGHT = '#b9e3f4', INK = '#4a3226', CREAM = '#fbf1da';
+  const WINDS = [-0.6, 0, 0.6], PANES = [2.2, 6.2]; // yarn winding offsets, sun pane x in cells
+  const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+  const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
+  const KEYS = {
+    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+    w: 'up', s: 'down', a: 'left', d: 'right'
+  };
+  const TITLES = { bonk: 'BONK!', splash: 'SPLASH!', tangle: 'TANGLED!' };
+  const FONT = '"Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif';
+
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const $hud = document.getElementById('hud');
+  const $score = document.getElementById('score');
+  const $best = document.getElementById('best');
+  const $hint = document.getElementById('hint');
+  const $over = document.getElementById('over');
+  const $title = document.getElementById('title');
+  const $final = document.getElementById('final');
+  const $snd = document.getElementById('snd');
+
+  // cells holds the thread, head (the cat) first; each cell remembers the yarn color laid down there.
+  // from[i] is where node i was before the current step; rendering slides it to cells[i] as the step progresses.
+  let cells, from, pending, foods, puddles, dir, queue, started, over, overTimer, score, best = 0, taken, steps, acc;
+  let particles, ghosts, popups, rings, knots, mouthAt, shake;
+  let W = 0, H = 0, dpr = 1, bx = 0, by = 0, cell = 0, rug, checker, stitch, fringe, popFont;
+  const PX = new Float32Array(COLS * ROWS + 1), PY = new Float32Array(COLS * ROWS + 1);
+
+  try { best = parseInt(localStorage.getItem(KEY), 10) || 0; } catch (e) { /* storage unavailable */ }
+
+  // muting silences a master gain, so tones already scheduled go quiet too
+  let ac = null, master = null, muted = false;
+  const audio = () => {
+    if (!ac) {
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+      master = ac.createGain();
+      master.gain.value = muted ? 0 : 1;
+      master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  };
+  const tone = (a, freq, delay, dur, type, vol, freqEnd) => {
+    const t = a.currentTime + delay;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.02);
+  };
+  // wooden pluck: a sine with a short overtone, walking up the pentatonic scale as yarn is taken
+  const PENT = [0, 2, 4, 7, 9];
+  const note = n => 329.63 * Math.pow(2, (PENT[n % 5] + 12 * Math.floor(n / 5)) / 12);
+  const playEat = n => {
+    const a = audio(); if (!a) return;
+    tone(a, note(n % 10), 0, 0.2, 'sine', 0.18);
+    tone(a, note(n % 10) * 3, 0, 0.07, 'triangle', 0.05);
+  };
+  const playKnot = n => {
+    const a = audio(); if (!a) return;
+    for (let i = 0; i < Math.min(n, 5) + 2; i++) tone(a, note(i + 2), i * 0.07, 0.35, 'sine', 0.16);
+  };
+  const playOver = () => {
+    const a = audio(); if (!a) return;
+    tone(a, 620, 0, 0.5, 'triangle', 0.16, 300);
+    tone(a, 140, 0.05, 0.25, 'sine', 0.2, 70);
+  };
+
+  const rnd = n => Math.floor(Math.random() * n);
+  const at = (list, x, y) => list.some(c => c.x === x && c.y === y);
+  const expire = (list, t, life) => {
+    for (let i = list.length - 1; i >= 0; i--) if (t - list[i].t > life) list.splice(i, 1);
+  };
+  const stepMs = () => Math.max(MIN_MS, START_MS - taken * RAMP_MS);
+
+  const freeCells = () => {
+    const free = [];
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (!at(cells, x, y) && !at(foods, x, y) && !at(puddles, x, y)) free.push({ x, y });
+      }
+    }
+    return free;
+  };
+
+  const snap = list => list.map(({ x, y }) => ({ x, y }));
+
+  const spawnFood = t => {
+    const free = freeCells();
+    if (free.length) foods.push({ ...free[rnd(free.length)], c: rnd(PALETTE.length), born: t });
+  };
+
+  // bounded: a full board spawns nothing
+  const refill = t => { for (let n = foods.length; n < FOODS; n++) spawnFood(t); };
+
+  // a puddle never drips right next to the cat
+  const spawnPuddle = t => {
+    const free = freeCells().filter(p => Math.abs(p.x - cells[0].x) + Math.abs(p.y - cells[0].y) >= PUDDLE_GAP);
+    if (free.length) puddles.push({ ...free[rnd(free.length)], born: t, seed: Math.random() * 6.3 });
+  };
+
+  const newGame = () => {
+    const x = COLS >> 1, y = ROWS - 5;
+    const c = rnd(PALETTE.length);
+    cells = [0, 1, 2, 3].map(i => ({ x, y: y + i, c }));
+    from = snap(cells);
+    pending = 0;
+    foods = []; puddles = []; particles = []; ghosts = []; popups = []; rings = []; knots = [];
+    queue = []; dir = 'up'; started = false; over = false;
+    score = 0; taken = 0; steps = 0; acc = 0; mouthAt = -1e9; shake = 0;
+    clearTimeout(overTimer);
+    $over.classList.remove('show');
+    $hint.style.display = '';
+    // born far in the past: a clock read here can land after the next frame's timestamp and give a negative scale
+    refill(-1e9);
+    renderHud();
+  };
+
+  const renderHud = () => { $score.textContent = score; $best.textContent = best; };
+
+  const addScore = n => {
+    score += n;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem(KEY, String(best)); } catch (e) { /* storage unavailable */ }
+    }
+    renderHud();
+  };
+
+  const burst = (x, y, col, n, t) => {
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 3;
+      particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, col, t });
+    }
+  };
+
+  const die = cause => {
+    over = true; shake = 1;
+    playOver();
+    $title.textContent = TITLES[cause];
+    $final.textContent = `${score} pts`;
+    overTimer = setTimeout(() => $over.classList.add('show'), 700);
+  };
+
+  // returns a test for "is this cell inside the loop", found by flooding in from the board edge
+  const insideOf = loop => {
+    const mask = new Uint8Array(COLS * ROWS); // 1 loop, 2 outside
+    loop.forEach(c => { mask[c.y * COLS + c.x] = 1; });
+    const stack = [];
+    const push = (x, y) => { const i = y * COLS + x; if (!mask[i]) { mask[i] = 2; stack.push(i); } };
+    for (let x = 0; x < COLS; x++) { push(x, 0); push(x, ROWS - 1); }
+    for (let y = 0; y < ROWS; y++) { push(0, y); push(COLS - 1, y); }
+    while (stack.length) {
+      const i = stack.pop(), x = i % COLS, y = (i / COLS) | 0;
+      if (x > 0) push(x - 1, y);
+      if (x < COLS - 1) push(x + 1, y);
+      if (y > 0) push(x, y - 1);
+      if (y < ROWS - 1) push(x, y + 1);
+    }
+    return (x, y) => mask[y * COLS + x] === 0;
+  };
+
+  const towardNeck = d => cells.length > 1 && cells[0].x + DIRS[d][0] === cells[1].x && cells[0].y + DIRS[d][1] === cells[1].y;
+
+  // the head runs into its own thread at cells[j]: the loop is cells[0..j]
+  const knot = (t, j, nx, ny) => {
+    const loop = cells.slice(0, j + 1);
+    const inside = insideOf(loop);
+    const caught = foods.filter(f => inside(f.x, f.y)), wet = puddles.filter(p => inside(p.x, p.y));
+    if (!caught.length && !wet.length) return die('tangle');
+
+    const gain = 10 * caught.length * caught.length + 10 * wet.length;
+    caught.forEach(f => {
+      ghosts.push({ x: f.x, y: f.y, c: f.c, tx: nx, ty: ny, t });
+      burst(f.x, f.y, PALETTE[f.c], 6, t);
+    });
+    wet.forEach(p => {
+      ghosts.push({ x: p.x, y: p.y, c: -1, tx: nx, ty: ny, t });
+      burst(p.x, p.y, WATER, 6, t);
+    });
+    foods = foods.filter(f => !caught.includes(f));
+    puddles = puddles.filter(p => !wet.includes(p));
+    knots.push({ pts: loop.map(c => ({ x: c.x, y: c.y })), x: nx, y: ny, t });
+    popups.push({ x: nx, y: ny, t, text: `+${gain}` });
+
+    // the loop is used up: the head sits on the hit cell and the thread behind it carries on
+    const oldHead = { x: cells[0].x, y: cells[0].y };
+    cells = [{ x: nx, y: ny, c: cells[0].c }].concat(cells.slice(j + 1));
+    from = snap(cells);
+    from[0] = oldHead;
+    taken += caught.length;
+    refill(t);
+    playKnot(caught.length + wet.length);
+    addScore(gain);
+  };
+
+  const step = t => {
+    if (queue.length) { const d = queue.shift(); if (!towardNeck(d)) dir = d; }
+    // after a knot the new neck can lie ahead of the head
+    if (towardNeck(dir)) dir = OPP[dir];
+    const nx = cells[0].x + DIRS[dir][0], ny = cells[0].y + DIRS[dir][1];
+    if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) return die('bonk');
+    if (at(puddles, nx, ny)) return die('splash');
+
+    const fi = foods.findIndex(f => f.x === nx && f.y === ny);
+    const grow = fi >= 0 || pending > 0;
+    // the tail cell is vacated this step unless the thread is growing
+    const reach = grow ? cells.length : cells.length - 1;
+    for (let i = 1; i < reach; i++) if (cells[i].x === nx && cells[i].y === ny) return knot(t, i, nx, ny);
+
+    from = snap(cells);
+    let c = cells[0].c;
+    if (fi >= 0) {
+      const f = foods.splice(fi, 1)[0];
+      c = f.c; pending += GROW; mouthAt = t; taken++;
+      rings.push({ x: nx, y: ny, c: f.c, t });
+      playEat(taken);
+      addScore(10);
+    }
+    cells.unshift({ x: nx, y: ny, c });
+    if (grow) { pending--; from.push(from[from.length - 1]); } else cells.pop();
+    refill(t);
+    if (++steps % PUDDLE_EVERY === 0 && puddles.length < PUDDLE_MAX) spawnPuddle(t);
+  };
+
+  const start = () => {
+    if (started) return;
+    started = true; acc = 0;
+    $hint.style.display = 'none';
+  };
+
+  const turn = d => {
+    if (over) return;
+    const ref = queue.length ? queue[queue.length - 1] : dir;
+    if (OPP[ref] === d) return;
+    start();
+    if (d !== ref && queue.length < 2) queue.push(d);
+  };
+
+  let px = 0, py = 0, pid = null, swiped = false;
+  cv.addEventListener('pointerdown', e => {
+    if (pid !== null) return;
+    pid = e.pointerId; swiped = false; px = e.clientX; py = e.clientY;
+    cv.setPointerCapture(pid);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (e.pointerId !== pid) return;
+    const dx = e.clientX - px, dy = e.clientY - py;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_PX) return;
+    turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    px = e.clientX; py = e.clientY; swiped = true;
+  });
+  cv.addEventListener('pointerup', e => {
+    if (e.pointerId !== pid) return;
+    pid = null;
+    if (!swiped && !over) start();
+    audio(); // touch pointerup counts as a user activation, unlike pointerdown
+  });
+  cv.addEventListener('pointercancel', e => { if (e.pointerId === pid) pid = null; });
+  ['gesturestart', 'contextmenu', 'dblclick'].forEach(n => window.addEventListener(n, e => e.preventDefault()));
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  window.addEventListener('keydown', e => {
+    const d = KEYS[e.key];
+    if (!d) return;
+    e.preventDefault();
+    audio();
+    turn(d);
+  });
+
+  $over.addEventListener('click', newGame);
+  document.getElementById('rst').addEventListener('click', newGame);
+  $snd.addEventListener('click', () => {
+    muted = !muted;
+    $snd.classList.toggle('off', muted);
+    if (master) master.gain.value = muted ? 0 : 1;
+    audio();
+  });
+
+  const layout = () => {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const top = $hud.getBoundingClientRect().bottom + 14, bottom = 24;
+    const availH = H - top - bottom;
+    cell = Math.max(1, Math.floor(Math.min((W - 12) / COLS, availH / ROWS, 64)));
+    bx = (W - cell * COLS) / 2;
+    by = top + (availH - cell * ROWS) / 2;
+    const w = cell * COLS, h = cell * ROWS;
+    rug = new Path2D(); rug.roundRect(0, 0, w, h, cell * 0.25);
+    stitch = new Path2D(); stitch.roundRect(cell * 0.14, cell * 0.14, w - cell * 0.28, h - cell * 0.28, cell * 0.14);
+    checker = new Path2D();
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if ((x + y) & 1) checker.rect(x * cell, y * cell, cell, cell);
+    // fringe tassels along the rug's short edges
+    fringe = new Path2D();
+    for (let i = 0; i < COLS * 2; i++) {
+      const x = (i + 0.5) * cell / 2;
+      fringe.moveTo(x, 0); fringe.lineTo(x, -cell * 0.18);
+      fringe.moveTo(x, h); fringe.lineTo(x, h + cell * 0.18);
+    }
+    popFont = `700 ${cell * 0.6}px ${FONT}`;
+  };
+  window.addEventListener('resize', layout);
+
+  const update = (dt, t) => {
+    const s = dt / 1000;
+    particles.forEach(p => { p.vy += 14 * s; p.x += p.vx * s; p.y += p.vy * s; });
+    expire(particles, t, PARTICLE_MS);
+    expire(ghosts, t, GHOST_MS);
+    expire(popups, t, POPUP_MS);
+    expire(rings, t, RING_MS);
+    expire(knots, t, KNOT_MS);
+    shake = Math.max(0, shake - dt / 400);
+  };
+
+  const disc = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
+  const oval = (x, y, rx, ry) => { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); };
+
+  // gx/gy are grid coordinates; scale grows the ball from nothing
+  const yarn = (gx, gy, ci, scale) => {
+    const x = (gx + 0.5) * cell, y = (gy + 0.5) * cell, r = 0.4 * cell * scale;
+    ctx.fillStyle = DARK[ci]; disc(x, y, r);
+    ctx.fillStyle = PALETTE[ci]; disc(x, y, r * 0.9);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y, r * 0.9, 0, Math.PI * 2); ctx.clip();
+    ctx.strokeStyle = DARK[ci]; ctx.lineWidth = r * 0.14; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const o of WINDS) {
+      ctx.moveTo(x - r, y + (o - 0.5) * r); ctx.quadraticCurveTo(x, y + (o + 0.6) * r, x + r, y + (o - 0.5) * r);
+      ctx.moveTo(x + (o - 0.5) * r, y - r); ctx.quadraticCurveTo(x + (o + 0.6) * r, y, x + (o - 0.5) * r, y + r);
+    }
+    ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = PALETTE[ci]; ctx.lineWidth = r * 0.16;
+    ctx.beginPath();
+    ctx.moveTo(x + r * 0.6, y + r * 0.72); ctx.quadraticCurveTo(x + r * 1.2, y + r * 0.7, x + r * 1.1, y + r * 1.15);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    oval(x - r * 0.4, y - r * 0.45, r * 0.22, r * 0.13);
+  };
+
+  const puddle = (p, t, scale, fade = 1) => {
+    const x = (p.x + 0.5) * cell, y = (p.y + 0.55) * cell, s = scale * cell;
+    ctx.fillStyle = WATER;
+    oval(x, y, s * 0.46, s * 0.36);
+    oval(x + s * 0.2 * Math.sin(p.seed), y - s * 0.06, s * 0.3, s * 0.3);
+    ctx.fillStyle = WATER_LIGHT;
+    oval(x - s * 0.08, y - s * 0.04, s * 0.26, s * 0.17);
+    const k = (t / 1100 + p.seed) % 1;
+    ctx.globalAlpha = (1 - k) * 0.8 * fade;
+    ctx.strokeStyle = WATER_LIGHT; ctx.lineWidth = cell * 0.04;
+    ctx.beginPath(); ctx.ellipse(x, y, s * (0.1 + 0.34 * k), s * (0.07 + 0.25 * k), 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  };
+
+  // chibi cat: a wide squashed head, short ears, big round eyes set low
+  const face = (cx, cy, r, t) => {
+    const [dx, dy] = DIRS[dir];
+    const pop = Math.max(0, 1 - (t - mouthAt) / 180);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(dx * 0.12);
+    ctx.scale(1 + 0.15 * pop, 1 + 0.15 * pop);
+    [-1, 1].forEach(sx => {
+      ctx.fillStyle = FUR;
+      ctx.beginPath(); ctx.moveTo(sx * r * 1.0, -r * 0.1); ctx.lineTo(sx * r * 0.82, -r * 0.98); ctx.lineTo(sx * r * 0.2, -r * 0.6); ctx.fill();
+      ctx.fillStyle = '#f08fb0';
+      ctx.beginPath(); ctx.moveTo(sx * r * 0.8, -r * 0.3); ctx.lineTo(sx * r * 0.74, -r * 0.78); ctx.lineTo(sx * r * 0.42, -r * 0.58); ctx.fill();
+    });
+    ctx.fillStyle = FUR; oval(0, r * 0.05, r * 1.04, r * 0.8);
+
+    ctx.lineCap = 'round';
+    [-1, 1].forEach(sx => {
+      const ex = sx * r * 0.45, ey = r * 0.02;
+      if (over) {
+        const e = r * 0.14;
+        ctx.strokeStyle = CREAM; ctx.lineWidth = r * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(ex - e, ey - e); ctx.lineTo(ex + e, ey + e);
+        ctx.moveTo(ex + e, ey - e); ctx.lineTo(ex - e, ey + e);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#f3d34a'; disc(ex, ey, r * 0.26);
+        ctx.fillStyle = '#1d1a24'; disc(ex + dx * r * 0.06, ey + dy * r * 0.06, r * 0.16);
+        ctx.fillStyle = '#fff'; disc(ex + dx * r * 0.06 - r * 0.06, ey + dy * r * 0.06 - r * 0.07, r * 0.06);
+      }
+    });
+    ctx.fillStyle = '#f08fb0'; disc(0, r * 0.3, r * 0.08);
+    if (pop > 0 || over) {
+      ctx.fillStyle = '#7a2f45'; oval(0, r * 0.5, r * 0.1, r * 0.12);
+    } else {
+      ctx.strokeStyle = '#f6b7c6'; ctx.lineWidth = r * 0.07;
+      ctx.beginPath(); ctx.arc(-r * 0.08, r * 0.4, r * 0.08, 0.1 * Math.PI, 0.95 * Math.PI);
+      ctx.moveTo(r * 0.16, r * 0.4); ctx.arc(r * 0.08, r * 0.4, r * 0.08, 0.05 * Math.PI, 0.9 * Math.PI);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(246,238,219,.75)'; ctx.lineWidth = r * 0.05;
+    ctx.beginPath();
+    [-1, 1].forEach(sx => [0, 1].forEach(k => {
+      ctx.moveTo(sx * r * 0.7, r * 0.34); ctx.lineTo(sx * r * 1.2, r * (0.26 + 0.2 * k));
+    }));
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const render = (t, p) => {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(bx + (Math.random() - 0.5) * 8 * shake, by + (Math.random() - 0.5) * 8 * shake);
+    const w = cell * COLS, h = cell * ROWS;
+
+    ctx.fillStyle = 'rgba(60,38,28,.22)';
+    ctx.save(); ctx.translate(0, cell * 0.12); ctx.fill(rug); ctx.restore();
+    ctx.strokeStyle = CREAM; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.stroke(fringe);
+    ctx.save();
+    ctx.clip(rug);
+    ctx.fillStyle = '#86a87a'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(40,70,40,.09)'; ctx.fill(checker);
+    // two window panes of afternoon sun drifting across the rug
+    const drift = Math.sin(t / 5000) * cell * 1.5;
+    ctx.fillStyle = 'rgba(255,248,214,.17)';
+    for (const o of PANES) {
+      const x = o * cell + drift;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + cell * 2.4, 0); ctx.lineTo(x - cell * 4.4, h * 0.75); ctx.lineTo(x - cell * 6.8, h * 0.75); ctx.fill();
+    }
+    ctx.restore();
+    ctx.strokeStyle = '#5d7d52'; ctx.lineWidth = 4; ctx.stroke(rug);
+    ctx.strokeStyle = 'rgba(251,241,218,.55)'; ctx.lineWidth = 2; ctx.setLineDash([cell * 0.2, cell * 0.16]);
+    ctx.stroke(stitch);
+    ctx.setLineDash([]);
+
+    puddles.forEach(q => puddle(q, t, Math.min(1, (t - q.born) / 300)));
+    foods.forEach(f => {
+      const s = Math.min(1, (t - f.born) / 200);
+      const bob = Math.sin(t / 260 + f.x * 1.7 + f.y) * 0.05;
+      ctx.fillStyle = 'rgba(0,0,0,.2)';
+      oval((f.x + 0.5) * cell, (f.y + 0.88) * cell, cell * 0.24 * s, cell * 0.06 * s);
+      yarn(f.x, f.y + bob - 0.05, f.c, s);
+    });
+
+    // p is the progress (0..1) of the current step
+    const n = cells.length;
+    for (let i = 0; i < n; i++) {
+      PX[i] = (from[i].x + (cells[i].x - from[i].x) * p + 0.5) * cell;
+      PY[i] = (from[i].y + (cells[i].y - from[i].y) * p + 0.5) * cell;
+    }
+    if (n > 1) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(60,38,28,.3)'; ctx.lineWidth = cell * 0.3;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) { if (i) ctx.lineTo(PX[i], PY[i] + cell * 0.05); else ctx.moveTo(PX[i], PY[i] + cell * 0.05); }
+      ctx.stroke();
+      ctx.lineWidth = cell * 0.2;
+      for (let i = 0; i < n - 1;) {
+        const ci = cells[i].c;
+        ctx.beginPath(); ctx.moveTo(PX[i], PY[i]);
+        let k = i;
+        while (k < n - 1 && cells[k].c === ci) { k++; ctx.lineTo(PX[k], PY[k]); }
+        ctx.strokeStyle = PALETTE[ci]; ctx.stroke();
+        i = k;
+      }
+    }
+    face(PX[0], PY[0], 0.5 * cell, t);
+
+    knots.forEach(k => {
+      const e = (t - k.t) / KNOT_MS, s = 1 - 0.9 * e;
+      ctx.globalAlpha = 1 - e;
+      ctx.strokeStyle = '#fff6dc'; ctx.lineWidth = cell * 0.22 * (1 + 0.4 * e);
+      ctx.beginPath();
+      k.pts.forEach((c, i) => {
+        const x = (k.x + 0.5 + (c.x - k.x) * s) * cell, y = (k.y + 0.5 + (c.y - k.y) * s) * cell;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      });
+      ctx.closePath(); ctx.stroke();
+    });
+    ghosts.forEach(g => {
+      const e = (t - g.t) / GHOST_MS, s = 1 - 0.6 * e;
+      const gx = g.x + (g.tx - g.x) * e, gy = g.y + (g.ty - g.y) * e;
+      ctx.globalAlpha = 1 - e;
+      if (g.c >= 0) yarn(gx, gy, g.c, s); else puddle({ x: gx, y: gy, seed: 0 }, 0, s, 1 - e);
+    });
+    ctx.globalAlpha = 1;
+
+    ctx.lineWidth = cell * 0.08;
+    rings.forEach(r => {
+      const k = (t - r.t) / RING_MS;
+      ctx.globalAlpha = 1 - k;
+      ctx.strokeStyle = PALETTE[r.c];
+      ctx.beginPath(); ctx.arc((r.x + 0.5) * cell, (r.y + 0.5) * cell, cell * (0.5 + 0.7 * k), 0, Math.PI * 2); ctx.stroke();
+    });
+    particles.forEach(q => {
+      ctx.globalAlpha = 1 - (t - q.t) / PARTICLE_MS;
+      ctx.fillStyle = q.col;
+      disc((q.x + 0.5) * cell, (q.y + 0.5) * cell, cell * 0.09);
+    });
+    ctx.globalAlpha = 1;
+
+    if (popups.length) {
+      ctx.font = popFont;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = cell * 0.14; ctx.lineJoin = 'round';
+      popups.forEach(q => {
+        const age = (t - q.t) / POPUP_MS;
+        ctx.globalAlpha = 1 - age;
+        const x = (q.x + 0.5) * cell, y = (q.y - age * 1.2) * cell;
+        ctx.strokeStyle = INK; ctx.strokeText(q.text, x, y);
+        ctx.fillStyle = CREAM; ctx.fillText(q.text, x, y);
+      });
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  };
+
+  let last = 0;
+  const frame = t => {
+    requestAnimationFrame(frame); // first, so one throwing frame cannot end the loop
+    const dt = Math.min(t - last, 50);
+    last = t;
+    if (started && !over) {
+      acc += dt;
+      const ms = stepMs();
+      while (acc >= ms && !over) { acc -= ms; step(t); }
+    }
+    update(dt, t);
+    render(t, started && !over ? Math.min(1, acc / stepMs()) : 1);
+  };
+
+  layout();
+  newGame();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
