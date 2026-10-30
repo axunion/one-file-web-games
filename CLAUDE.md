@@ -2,15 +2,17 @@
 
 A collection of mini games in the style of mobile playable ads. Every game follows
 `docs/regulation.md`: its MUST rules are mandatory, and its SHOULD principles may be
-deviated from intentionally (noted in a top-of-file comment).
+deviated from intentionally (noted in a top-of-file comment). The catalog page
+`src/index.html` lists every game and follows `docs/catalog.md`.
 
 ## Development Flow (implementation-first)
 
 1. **Implement**: Build `src/<name>/index.html` directly from the user's idea,
-   following `docs/regulation.md`. Iterate on feel and balance with the user.
+   following `docs/regulation.md`. Iterate on feel and balance with the user. Add or
+   update the game's card in `src/index.html` per `docs/catalog.md` in the same change.
 2. **Verify**: Walk through the MUST Compliance Checklist in `docs/regulation.md` and
    actually play the game in a browser with a mobile viewport, judging it against the
-   SHOULD principles.
+   SHOULD principles. Also view the catalog page in the same viewport to check the card.
 
 The implementation is the only source of truth; do not write per-game spec documents.
 
