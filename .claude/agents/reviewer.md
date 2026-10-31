@@ -21,7 +21,7 @@ change, to address.
    happen here (a client-only game in a single HTML file with no server and no network).
 3. **Conventions**: naming that communicates intent, helpers only extracted at genuine
    reuse (3+ places), no commented-out code, comments and any in-game text meant for
-   readers in English, except the help panel's translations (`docs/help.md`).
+   readers in English, except the translations in a game's `TEXT` table (`docs/help.md`).
 4. **Regulation**: read `docs/regulation.md` and check the change against its MUST rules
    by reading the code. A SHOULD principle the game departs from is acceptable only if
    a one-line `<!-- SHOULD deviation: ... -->` comment right after `<!DOCTYPE html>`

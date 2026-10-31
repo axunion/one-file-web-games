@@ -3,7 +3,7 @@
 A collection of mini games in the style of mobile playable ads. Every game follows
 `docs/regulation.md`: its MUST rules are mandatory, and its SHOULD principles may be
 deviated from intentionally (noted in a top-of-file comment). Each game's help panel
-follows `docs/help.md`. The catalog page `src/index.html` lists every game and follows
+and language switch follow `docs/help.md`. The catalog page `src/index.html` lists every game and follows
 `docs/catalog.md`.
 
 ## Development Flow (implementation-first)

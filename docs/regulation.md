@@ -70,7 +70,8 @@ Rules come in two strengths:
   result cannot be controlled. Word labels are fine, whether plain ASCII such as
   "New game" or language names such as `日本語`.
 - Every game has a bilingual (English and Japanese) help panel opened from a `?`
-  button, built per `docs/help.md`. It never opens by itself.
+  button, and translates all its player-visible text with the same language switch,
+  built per `docs/help.md`. The panel never opens by itself.
 
 ### Performance
 
@@ -139,7 +140,7 @@ from Original identity is there.
 - [ ] Scroll, zoom, text selection, and touch callouts suppressed during play
 - [ ] Safe-area insets respected on notched devices
 - [ ] Control icons are inline SVG or canvas drawings, not text glyphs or emoji
-- [ ] Help panel per `docs/help.md`
+- [ ] Help panel and whole-game English/Japanese text per `docs/help.md`
 - [ ] Smooth (~60 fps) animation via `requestAnimationFrame`
 - [ ] Audio (if any) starts only after a user gesture and can be muted
 - [ ] `localStorage` limited to a best record under `ofwg:<game-name>`; game works

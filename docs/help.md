@@ -1,6 +1,7 @@
 # Help Panel
 
-Rules for the how-to-play panel every game carries. The reference implementation is
+Rules for the bilingual how-to-play panel every game carries, and for the language
+switch that translates the whole game. The reference implementation is
 `src/classic-2048/index.html`: copy its help parts into a new game, then restyle them to
 the game's world. The code there is the source of truth; this page records what to keep
 and what to adapt.
@@ -21,20 +22,28 @@ The structure and behavior are shared so that players learn it once.
   input until the panel closes, and the controls behind it are `inert` so Tab and Enter cannot
   reach them. The `?` stays above the game-over screen, so help is reachable there.
   Real-time games also pause while the panel is open and resume when it closes.
-- **Languages**: English and Japanese. The initial language comes from
+- **Languages**: English and Japanese, for the whole game, not only the panel. The initial
+  language comes from
   `navigator.language` (`ja` prefix gives Japanese, anything else English). It is not
   saved, because the Persistence MUST allows only the best record in `localStorage`.
+  Every string the player reads (HUD labels, buttons, the game-over overlay, canvas text,
+  `aria-label`s) lives in one per-game language table `TEXT`. Static elements carry
+  `data-t="key"` (text) or `data-aria="key"` (`aria-label`); text built at runtime, such as
+  the final score, goes through a `renderOver()` that `setLang` also calls, so switching
+  language while the overlay shows updates it; canvas text reads `tx` when drawn. Numbers,
+  symbols, and the `<title>` (the game's name) stay as they are.
 - **Language switch**: two equal-width buttons on the left edge of the game's column,
   level with the `×`, its left edge mirroring the `?`'s right edge.
   Each language is named in its own language, `English` / `日本語`, whichever is shown, so
   a reader can always find their way back. The active one is filled.
-- **`lang` attribute**: set on the panel and the `?` button, the elements that carry
-  translated text. Setting it on `<html>` would change font fallback for the whole game.
+- **`lang` attribute**: `setLang` sets it on `<html>`, so screen readers and font
+  fallback follow the shown language. The trade-off, accepted: where the generic
+  `system-ui` / `sans-serif` fonts differ per language, digits may change shape when the
+  language changes. The two language buttons carry their own `lang`.
 - **Layout**: the switch and `×` stay on the `?`'s row. The title and text sit in a
   fixed-height box that is centered vertically, with text starting at the top of the
   box, so the controls, the box, and where the text starts stay put when the language
   changes.
-- **Accessibility**: the `?` and `×` buttons get `aria-label`s in the current language.
 
 ## Text
 
@@ -65,4 +74,5 @@ its own layout and keeps everything else above. No deviation comment is needed.
 
 When the help text or panel changes in a way other games should share, update
 `src/classic-2048/index.html` and this page together. Check the panel in a mobile
-viewport in both languages, including that switching language moves nothing.
+viewport in both languages, including the HUD and the game-over screen, and that
+switching language moves nothing.
