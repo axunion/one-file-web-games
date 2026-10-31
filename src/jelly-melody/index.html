@@ -17,15 +17,15 @@
   }
   canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   #hud {
-    position: fixed; left: 0; right: 0; top: 0; display: flex; align-items: stretch; gap: 8px;
+    position: fixed; z-index: 1; left: 0; right: 0; top: 0; display: flex; align-items: stretch; gap: 6px;
     padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 16px) 0 calc(env(safe-area-inset-left) + 16px);
     max-width: 560px; margin: 0 auto;
   }
-  .box { flex: 1; background: var(--panel); border-radius: 14px; padding: 6px 12px; min-width: 0; }
+  .box { flex: 1; background: var(--panel); border-radius: 14px; padding: 6px 10px; min-width: 0; }
   .box small { display: block; font-size: 11px; letter-spacing: .12em; opacity: .6; }
-  .box b { font-size: 24px; line-height: 1.15; }
+  .box b { font-size: 22px; line-height: 1.15; }
   button {
-    width: 48px; border: 0; border-radius: 14px; background: var(--panel); color: var(--ink);
+    width: 40px; border: 0; border-radius: 14px; background: var(--panel); color: var(--ink);
     padding: 0; display: grid; place-items: center; cursor: pointer;
   }
   button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -47,6 +47,21 @@
   #over h1 { margin: 0; font-size: 34px; letter-spacing: .08em; }
   #over p { margin: 0; font-size: 20px; }
   #over .tap { margin-top: 14px; font-size: 16px; opacity: .6; }
+  #help {
+    position: fixed; inset: 0; z-index: 2; display: none; flex-direction: column; align-items: center; background: var(--bg);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 28px); /* the top and sides are set by placeHelp() */
+  }
+  #help.show { display: flex; }
+  #hclose { position: fixed; }
+  #help .langs { display: grid; flex: none; grid-template-columns: 1fr 1fr; width: 160px; height: 36px; gap: 8px; align-self: flex-start; }
+  #help .langs button { width: auto; height: 100%; font: inherit; font-size: 14px; letter-spacing: .08em; }
+  #help .langs button.on { background: #ffc4a8; font-weight: 700; }
+  /* the body sits in a fixed-height box centred vertically, text top-aligned inside, so switching language moves nothing */
+  #help .main { width: min(100%, 340px); flex: 1; min-height: 0; display: flex; align-items: center; padding-bottom: 40px; }
+  #help .body { width: 100%; height: 430px; max-height: 100%; }
+  #help h2 { margin: 0 0 16px; font-size: 30px; line-height: 44px; letter-spacing: .08em; }
+  #help ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  #help li { padding: 10px 14px; background: var(--panel); border-radius: 14px; font-size: 15px; line-height: 1.65; text-wrap: pretty; word-break: auto-phrase; line-break: strict; }
 </style>
 </head>
 <body>
@@ -56,9 +71,15 @@
   <div class="box"><small>BEST</small><b id="best">0</b></div>
   <button id="rst" aria-label="Restart"><svg viewBox="0 0 24 24"><path d="M19.05 14.57A7.5 7.5 0 1 1 15.75 5.5"/><path class="solid" d="M17.35 2.73L18.69 7.2L14.15 8.27Z"/></svg></button>
   <button id="snd" aria-label="Sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+  <button id="qbtn"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
 </div>
-<div id="hint">Swipe to merge</div>
+<div id="hint"></div>
 <div id="over"><h1>NO MOVES</h1><p id="final"></p><p class="tap">Tap to retry</p></div>
+<div id="help">
+  <div class="langs"><button data-l="en">English</button><button data-l="ja">日本語</button></div>
+  <div class="main"><div class="body"><h2 id="htitle"></h2><ul id="hlist"></ul></div></div>
+  <button id="hclose"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+</div>
 
 <script>
 (() => {
@@ -78,10 +99,56 @@
   const ctx = cv.getContext('2d');
   const $score = document.getElementById('score');
   const $best = document.getElementById('best');
+  const $hud = document.getElementById('hud');
   const $hint = document.getElementById('hint');
   const $over = document.getElementById('over');
   const $final = document.getElementById('final');
   const $snd = document.getElementById('snd');
+
+  const HELP = {
+    en: {
+      title: 'How to play', hint: 'Swipe to merge', aria: { help: 'Help', close: 'Close' },
+      items: ['This is a merging game: join matching jellies into bigger ones for a high score.', 'Swipe, or use the arrow keys, and every jelly slides that way.', 'Jellies with the same number merge, and a merge next to a match chains on for more points.', 'The game is over when the board is full and no move is left.'],
+    },
+    ja: {
+      title: '遊び方', hint: 'スワイプで合体', aria: { help: 'ヘルプ', close: '閉じる' },
+      items: ['同じ数字のゼリーを合体させて、ハイスコアを目指すゲームです。', 'スワイプ（または矢印キー）すると、すべてのゼリーがその向きに滑ります。', '同じ数字のゼリーは合体し、隣に同じ数字があると連鎖して高得点になります。', '盤面が埋まって動かせなくなると、ゲームオーバーです。'],
+    },
+  };
+  const $help = document.getElementById('help');
+  const $qbtn = document.getElementById('qbtn');
+  const $hclose = document.getElementById('hclose');
+  const $htitle = document.getElementById('htitle');
+  const $hlist = document.getElementById('hlist');
+  const $langBar = document.querySelector('.langs');
+  const $langs = $langBar.querySelectorAll('button');
+
+  const setLang = l => {
+    $help.lang = $qbtn.lang = l;
+    const h = HELP[l];
+    $htitle.textContent = h.title;
+    $hint.textContent = h.hint;
+    $hlist.replaceChildren(...h.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
+    $qbtn.setAttribute('aria-label', h.aria.help);
+    $hclose.setAttribute('aria-label', h.aria.close);
+    $langs.forEach(b => b.classList.toggle('on', b.dataset.l === l));
+  };
+  // the ? sits in the HUD row, whose position is only known at runtime: the close button copies its box,
+  // the language switch is level with it, and the centred column's left edge mirrors its right edge
+  const placeHelp = () => {
+    const r = $qbtn.getBoundingClientRect(), barH = $langBar.offsetHeight, w = document.documentElement.clientWidth;
+    Object.assign($hclose.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    $help.style.paddingTop = r.top + (r.height - barH) / 2 + 'px';
+    $help.style.paddingInline = w - r.right + 'px';
+  };
+  let helpOpen = false;
+  // inert keeps Tab and Enter from reaching the controls behind the panel
+  const showHelp = open => {
+    helpOpen = open;
+    $help.classList.toggle('show', open);
+    for (const el of [$hud, $over]) el.inert = open;
+    if (open) { placeHelp(); $hclose.focus(); }
+  };
 
   let grid, tiles, score, best = 0, over, overTimer, stage, pending, shake = 0;
   let particles = [], chainLabel = null;
@@ -194,7 +261,7 @@
   };
 
   const tryMove = dir => {
-    if (over) return;
+    if (over || helpOpen) return;
     if (stage) { pending = dir; return; }
     const merges = slide(dir);
     if (!merges) { shake = Math.max(shake, 3); return; }
@@ -408,7 +475,7 @@
   let start = null;
   const THRESH = 24;
   window.addEventListener('pointerdown', e => {
-    if (start || over || e.target.closest('button')) return;
+    if (start || over || helpOpen || e.target.closest('button')) return;
     start = { id: e.pointerId, x: e.clientX, y: e.clientY };
   });
   window.addEventListener('pointermove', e => {
@@ -425,6 +492,7 @@
   window.addEventListener('pointerup', endGesture);
   window.addEventListener('pointercancel', endGesture);
   window.addEventListener('keydown', e => {
+    if (helpOpen) { if (e.key === 'Escape') showHelp(false); return; }
     const d = KEYS[e.key];
     if (d) { e.preventDefault(); tryMove(d); }
   });
@@ -439,6 +507,11 @@
   });
 
   window.addEventListener('resize', resize);
+  $qbtn.addEventListener('click', () => showHelp(true));
+  $hclose.addEventListener('click', () => showHelp(false));
+  $langs.forEach(b => b.addEventListener('click', () => setLang(b.dataset.l)));
+  window.addEventListener('resize', () => { if (helpOpen) placeHelp(); });
+  setLang(navigator.language.startsWith('ja') ? 'ja' : 'en');
   resize();
   newGame();
   requestAnimationFrame(frame);
