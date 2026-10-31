@@ -62,13 +62,14 @@ Run each against the game file (`F`) and record pass or fail:
     lists every non-ASCII character outside the shared favicon line. A hit inside a
     `<button>` or other control's markup fails. A hit elsewhere (for example a `×` in
     text drawn on the canvas) is reported with its line for the calling conversation to
-    judge.
+    judge. Word labels, including the help panel's language names, are allowed
+    (`docs/regulation.md`).
 
 ## Output
 
 State clearly: pass or fail for each numbered check, with the offending line when one
 fails. Then list the MUST items you could not verify and need real play — touch and
 mouse parity, portrait layout filling the viewport, scroll and zoom suppression,
-smooth 60 fps, audio starting only after a gesture and being mutable, and the game
-working with storage unavailable — so they don't read as covered. The calling
+smooth 60 fps, audio starting only after a gesture and being mutable, the game
+working with storage unavailable, and the help panel's behavior per `docs/help.md` — so they don't read as covered. The calling
 conversation will act on this report, not on your diagnosis of the root cause.
