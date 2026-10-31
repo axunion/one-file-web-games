@@ -35,6 +35,26 @@
   #over.show { display: flex; }
   #over h2 { margin: 0; font-size: 40px; font-weight: 300; letter-spacing: .02em; }
   #over p { margin: 0; font-size: 14px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+  .ibtn {
+    position: fixed; top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px);
+    width: 32px; height: 32px; padding: 0; border-radius: 50%; display: grid; place-items: center;
+    border-color: var(--mute); color: var(--mute);
+  }
+  .ibtn svg { pointer-events: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+  #help {
+    position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; background: var(--bg);
+    padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 28px) calc(env(safe-area-inset-bottom) + 28px) calc(env(safe-area-inset-left) + 28px);
+  }
+  #help.show { display: flex; }
+  #help .langs { display: grid; grid-template-columns: 1fr 1fr; width: 144px; align-self: flex-start; gap: 8px; height: 32px; }
+  #help .langs button { padding: 0; }
+  #help .langs button.on { background: var(--ink); color: var(--bg); }
+  /* the body sits in a fixed-height box centred vertically, text top-aligned inside, so switching language moves nothing */
+  #help .main { width: min(100%, 340px); flex: 1; display: flex; align-items: center; padding-bottom: 40px; }
+  #help .body { width: 100%; height: 400px; }
+  #help h2 { margin: 0 0 20px; font-size: 28px; line-height: 44px; font-weight: 300; letter-spacing: .02em; }
+  #help ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 20px; }
+  #help li { font-size: 16px; line-height: 1.7; text-wrap: pretty; word-break: auto-phrase; line-break: strict; }
 </style>
 </head>
 <body>
@@ -48,6 +68,12 @@
 </div>
 <button id="rst">New game</button>
 <div id="over"><h2>Game over</h2><p id="final"></p><button>Try again</button></div>
+<button id="qbtn" class="ibtn"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
+<div id="help">
+  <div class="langs"><button data-l="en"></button><button data-l="ja"></button></div>
+  <div class="main"><div class="body"><h2 id="htitle"></h2><ul id="hlist"></ul></div></div>
+  <button id="hclose" class="ibtn"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+</div>
 
 <script>
 (() => {
@@ -61,6 +87,17 @@
   const COLORS = { 2: '#ffffff', 4: '#c4c4bf', 8: '#a3a39e', 16: '#82827d', 32: '#63635f', 64: '#484845',
                    128: '#343432', 256: '#242423', 512: '#181817', 1024: '#0e0e0d', 2048: '#000000' };
 
+  const HELP = {
+    en: {
+      title: 'How to play', labels: ['EN', 'JA'], aria: { help: 'Help', close: 'Close' },
+      items: ['The goal is to merge numbered tiles into a 2048 tile.', 'Swipe, or use the arrow keys, and every tile slides that way.', 'When two tiles with the same number touch, they merge into one with double the value.', 'The game is over when the board is full and no move is left.'],
+    },
+    ja: {
+      title: '遊び方', labels: ['英語', '日本語'], aria: { help: 'ヘルプ', close: '閉じる' },
+      items: ['数字のタイルを合体させて、2048を目指すゲームです。', 'スワイプ（または矢印キー）すると、すべてのタイルがその向きに滑ります。', '同じ数字のタイルがぶつかると、合体して数字が2倍になります。', '盤面が埋まって動かせなくなると、ゲームオーバーです。'],
+    },
+  };
+
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
   const $score = document.getElementById('score');
@@ -69,6 +106,30 @@
   const $rst = document.getElementById('rst');
   const $over = document.getElementById('over');
   const $final = document.getElementById('final');
+  const $help = document.getElementById('help');
+  const $htitle = document.getElementById('htitle');
+  const $hlist = document.getElementById('hlist');
+  const $langs = document.querySelectorAll('.langs button');
+  const $qbtn = document.getElementById('qbtn');
+  const $hclose = document.getElementById('hclose');
+
+  const setLang = l => {
+    $help.lang = $qbtn.lang = l;
+    const h = HELP[l];
+    $htitle.textContent = h.title;
+    $hlist.replaceChildren(...h.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
+    $qbtn.setAttribute('aria-label', h.aria.help);
+    $hclose.setAttribute('aria-label', h.aria.close);
+    $langs.forEach((b, i) => { b.textContent = h.labels[i]; b.classList.toggle('on', b.dataset.l === l); });
+  };
+  // inert keeps Tab and Enter from reaching the controls behind the panel
+  let helpOpen = false;
+  const showHelp = open => {
+    helpOpen = open;
+    $help.classList.toggle('show', open);
+    for (const el of [$rst, $over, $qbtn]) el.inert = open;
+    if (open) $hclose.focus();
+  };
 
   let grid, tiles, score, best = 0, over, overTimer, stage, pending, dirty = true;
   let W = 0, H = 0, dpr = 1, bx = 0, by = 0, bs = 0, gap = 0, cell = 0;
@@ -256,7 +317,7 @@
   let start = null;
   const THRESH = 24;
   window.addEventListener('pointerdown', e => {
-    if (start || over || e.target.closest('button')) return;
+    if (start || over || helpOpen || e.target.closest('button')) return;
     start = { id: e.pointerId, x: e.clientX, y: e.clientY };
   });
   window.addEventListener('pointermove', e => {
@@ -271,6 +332,7 @@
   window.addEventListener('pointerup', endGesture);
   window.addEventListener('pointercancel', endGesture);
   window.addEventListener('keydown', e => {
+    if (helpOpen) { if (e.key === 'Escape') showHelp(false); return; }
     const d = KEYS[e.key];
     if (d) { e.preventDefault(); tryMove(d); }
   });
@@ -280,7 +342,12 @@
   $over.addEventListener('click', newGame);
   $rst.addEventListener('click', () => { $rst.blur(); newGame(); });
 
+  $qbtn.addEventListener('click', () => showHelp(true));
+  $hclose.addEventListener('click', () => showHelp(false));
+  $langs.forEach(b => b.addEventListener('click', () => setLang(b.dataset.l)));
+
   window.addEventListener('resize', resize);
+  setLang(navigator.language.startsWith('ja') ? 'ja' : 'en');
   resize();
   newGame();
   requestAnimationFrame(frame);
