@@ -84,19 +84,19 @@
 <body>
 <canvas id="cv"></canvas>
 <div id="hud">
-  <button id="rst" aria-label="Restart"><svg viewBox="0 0 24 24"><path d="M5.2 12a6.8 6.8 0 1 0 2-4.8"/><path class="solid" d="M4.2 3.6v5.4h5.4z"/></svg></button>
-  <div id="tally"><b id="score">0</b><small>BEST <span id="best">0</span></small></div>
+  <button id="rst" data-aria="restart"><svg viewBox="0 0 24 24"><path d="M5.2 12a6.8 6.8 0 1 0 2-4.8"/><path class="solid" d="M4.2 3.6v5.4h5.4z"/></svg></button>
+  <div id="tally"><b id="score">0</b><small><span data-t="best"></span> <span id="best">0</span></small></div>
   <div class="ctl">
-  <button id="snd" aria-label="Sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
-  <button id="qbtn"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
+  <button id="snd" data-aria="sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+  <button id="qbtn" data-aria="help"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
   </div>
 </div>
-<div id="hint"></div>
-<div id="over"><h1 id="title"></h1><p id="final"></p><p class="tap">Tap to retry</p></div>
+<div id="hint" data-t="hint"></div>
+<div id="over"><h1 id="title"></h1><p id="final"></p><p class="tap" data-t="retry"></p></div>
 <div id="help">
-  <div class="langs"><button data-l="en">English</button><button data-l="ja">日本語</button></div>
-  <div class="main"><div class="body"><h2 id="htitle"></h2><ul id="hlist"></ul></div></div>
-  <button id="hclose"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+  <div class="langs"><button data-l="en" lang="en">English</button><button data-l="ja" lang="ja">日本語</button></div>
+  <div class="main"><div class="body"><h2 data-t="title"></h2><ul id="hlist"></ul></div></div>
+  <button id="hclose" data-aria="close"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
 </div>
 
 <script>
@@ -121,7 +121,6 @@
     ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
     w: 'up', s: 'down', a: 'left', d: 'right'
   };
-  const TITLES = { bonk: 'BONK!', splash: 'SPLASH!', tangle: 'TANGLED!' };
   const FONT = '"Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif';
 
   const cv = document.getElementById('cv');
@@ -135,33 +134,51 @@
   const $final = document.getElementById('final');
   const $snd = document.getElementById('snd');
 
-  const HELP = {
+  const TEXT = {
     en: {
-      title: 'How to play', hint: 'Swipe to start · loop the yarn', aria: { help: 'Help', close: 'Close' },
+      title: 'How to play',
+      hint: 'Swipe to start · loop the yarn',
       items: ['The cat trails a thread, and looping it around balls of yarn catches them for points.', 'Swipe, or use the arrow keys, and the cat turns that way.', 'Yarn the cat touches is picked up, and yarn inside a closed loop scores far more.', 'The game is over at a wall, a puddle, or a loop with nothing inside.'],
+      help: 'Help',
+      close: 'Close',
+      restart: 'Restart',
+      sound: 'Sound',
+      best: 'BEST',
+      retry: 'Tap to retry',
+      over: { bonk: 'BONK!', splash: 'SPLASH!', tangle: 'TANGLED!' },
+      final: n => `${n} pts`,
     },
     ja: {
-      title: '遊び方', hint: 'スワイプで開始 · 毛糸を輪で囲む', aria: { help: 'ヘルプ', close: '閉じる' },
+      title: '遊び方',
+      hint: 'スワイプで開始・毛糸を輪で囲む',
       items: ['猫は糸を引いて進み、毛糸玉を糸の輪で囲むと得点になるゲームです。', 'スワイプ（または矢印キー）すると、猫がその向きに曲がります。', '毛糸玉に触れると拾えて、輪の中に囲むとさらに高得点になります。', '壁か水たまりにぶつかるか、中に何もない輪を閉じるとゲームオーバーです。'],
+      help: 'ヘルプ',
+      close: '閉じる',
+      restart: 'リスタート',
+      sound: 'サウンド',
+      best: 'ベスト',
+      retry: 'タップでリトライ',
+      over: { bonk: 'ゴツン！', splash: 'バシャッ！', tangle: 'からまった！' },
+      final: n => `${n}点`,
     },
   };
   const $help = document.getElementById('help');
   const $qbtn = document.getElementById('qbtn');
   const $hclose = document.getElementById('hclose');
-  const $htitle = document.getElementById('htitle');
   const $hlist = document.getElementById('hlist');
   const $langBar = document.querySelector('.langs');
   const $langs = $langBar.querySelectorAll('button');
 
+  let tx;
   const setLang = l => {
-    $help.lang = $qbtn.lang = l;
-    const h = HELP[l];
-    $htitle.textContent = h.title;
-    $hint.textContent = h.hint;
-    $hlist.replaceChildren(...h.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
-    $qbtn.setAttribute('aria-label', h.aria.help);
-    $hclose.setAttribute('aria-label', h.aria.close);
+    tx = TEXT[l];
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-t]').forEach(e => { e.textContent = tx[e.dataset.t]; });
+    document.querySelectorAll('[data-aria]').forEach(e => e.setAttribute('aria-label', tx[e.dataset.aria]));
+    $hlist.replaceChildren(...tx.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
     $langs.forEach(b => b.classList.toggle('on', b.dataset.l === l));
+    if (over) renderOver();
+    if (helpOpen) placeHelp(); // the HUD labels changed, so the ? may have moved
   };
   // the ? sits in the HUD row, whose position is only known at runtime: the close button copies its box,
   // the language switch is level with it, and the centred column's left edge mirrors its right edge
@@ -298,11 +315,17 @@
     }
   };
 
+  let overCause;
+  const renderOver = () => {
+    $title.textContent = tx.over[overCause];
+    $final.textContent = tx.final(score);
+  };
+
   const die = cause => {
     over = true; shake = 1;
     playOver();
-    $title.textContent = TITLES[cause];
-    $final.textContent = `${score} pts`;
+    overCause = cause;
+    renderOver();
     overTimer = setTimeout(() => $over.classList.add('show'), 700);
   };
 

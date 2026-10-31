@@ -93,19 +93,19 @@
 <body>
 <canvas id="cv"></canvas>
 <div id="hud">
-  <button id="rst" aria-label="Restart"><svg viewBox="0 0 24 24"><path d="M19.05 14.57A7.5 7.5 0 1 1 15.75 5.5"/><path class="solid" d="M17.35 2.73L18.69 7.2L14.15 8.27Z"/></svg></button>
-  <div id="tally"><b id="score">0</b><small>BEST <span id="best">0</span></small></div>
+  <button id="rst" data-aria="restart"><svg viewBox="0 0 24 24"><path d="M19.05 14.57A7.5 7.5 0 1 1 15.75 5.5"/><path class="solid" d="M17.35 2.73L18.69 7.2L14.15 8.27Z"/></svg></button>
+  <div id="tally"><b id="score">0</b><small><span data-t="best"></span> <span id="best">0</span></small></div>
   <div class="ctl">
-  <button id="snd" aria-label="Sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
-  <button id="qbtn"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
+  <button id="snd" data-aria="sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+  <button id="qbtn" data-aria="help"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
   </div>
 </div>
-<div id="hint"></div>
-<div id="over"><h1>SIGNAL LOST</h1><p id="final"></p><p class="tap">Tap to retry</p></div>
+<div id="hint" data-t="hint"></div>
+<div id="over"><h1 data-t="over"></h1><p id="final"></p><p class="tap" data-t="retry"></p></div>
 <div id="help">
-  <div class="langs"><button data-l="en">English</button><button data-l="ja">日本語</button></div>
-  <div class="main"><div class="body"><h2 id="htitle"></h2><ul id="hlist"></ul></div></div>
-  <button id="hclose"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+  <div class="langs"><button data-l="en" lang="en">English</button><button data-l="ja" lang="ja">日本語</button></div>
+  <div class="main"><div class="body"><h2 data-t="title"></h2><ul id="hlist"></ul></div></div>
+  <button id="hclose" data-aria="close"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
 </div>
 
 <script>
@@ -156,33 +156,51 @@
   const $final = document.getElementById('final');
   const $snd = document.getElementById('snd');
 
-  const HELP = {
+  const TEXT = {
     en: {
-      title: 'How to play', hint: 'Swipe to start · match 3', aria: { help: 'Help', close: 'Close' },
+      title: 'How to play',
+      hint: 'Swipe to start · match 3',
       items: ['The goal is to collect stars and burst them for a high score.', 'Swipe, or use the arrow keys, and the ship turns that way.', 'Collected stars join the chain behind the ship, and three of the same color in a row burst for bonus points.', 'The game is over when the ship hits the board edge or its own chain.'],
+      help: 'Help',
+      close: 'Close',
+      restart: 'Restart',
+      sound: 'Sound',
+      best: 'BEST',
+      over: 'SIGNAL LOST',
+      retry: 'Tap to retry',
+      final: n => `${n} pts`,
     },
     ja: {
-      title: '遊び方', hint: 'スワイプで開始 · 同じ色を3つ', aria: { help: 'ヘルプ', close: '閉じる' },
+      title: '遊び方',
+      hint: 'スワイプで開始・同じ色を3つ',
       items: ['星を集めて弾けさせ、ハイスコアを目指すゲームです。', 'スワイプ（または矢印キー）すると、船がその向きに曲がります。', '集めた星は船の後ろにつながり、同じ色が3つ並ぶと弾けてボーナス得点になります。', '盤面の端か、自分の鎖にぶつかるとゲームオーバーです。'],
+      help: 'ヘルプ',
+      close: '閉じる',
+      restart: 'リスタート',
+      sound: 'サウンド',
+      best: 'ベスト',
+      over: 'シグナルロスト',
+      retry: 'タップでリトライ',
+      final: n => `${n}点`,
     },
   };
   const $help = document.getElementById('help');
   const $qbtn = document.getElementById('qbtn');
   const $hclose = document.getElementById('hclose');
-  const $htitle = document.getElementById('htitle');
   const $hlist = document.getElementById('hlist');
   const $langBar = document.querySelector('.langs');
   const $langs = $langBar.querySelectorAll('button');
 
+  let tx;
   const setLang = l => {
-    $help.lang = $qbtn.lang = l;
-    const h = HELP[l];
-    $htitle.textContent = h.title;
-    $hint.textContent = h.hint;
-    $hlist.replaceChildren(...h.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
-    $qbtn.setAttribute('aria-label', h.aria.help);
-    $hclose.setAttribute('aria-label', h.aria.close);
+    tx = TEXT[l];
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-t]').forEach(e => { e.textContent = tx[e.dataset.t]; });
+    document.querySelectorAll('[data-aria]').forEach(e => e.setAttribute('aria-label', tx[e.dataset.aria]));
+    $hlist.replaceChildren(...tx.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
     $langs.forEach(b => b.classList.toggle('on', b.dataset.l === l));
+    if (over) renderOver();
+    if (helpOpen) placeHelp(); // the HUD labels changed, so the ? may have moved
   };
   // the ? sits in the HUD row, whose position is only known at runtime: the close button copies its box,
   // the language switch is level with it, and the centred column's left edge mirrors its right edge
@@ -319,10 +337,12 @@
     playPop(ci);
   };
 
+  const renderOver = () => { $final.textContent = tx.final(score); };
+
   const die = () => {
     over = true; shake = 1;
     playOver();
-    $final.textContent = `${score} pts`;
+    renderOver();
     overTimer = setTimeout(() => $over.classList.add('show'), 700);
   };
 

@@ -63,17 +63,17 @@
 <div id="hud">
   <h1>2048</h1>
   <div class="stats">
-    <div><small>SCORE</small><b id="score">0</b></div>
-    <div><small>BEST</small><b id="best">0</b></div>
+    <div><small data-t="score"></small><b id="score">0</b></div>
+    <div><small data-t="best"></small><b id="best">0</b></div>
   </div>
-  <button id="qbtn" class="ibtn"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
+  <button id="qbtn" class="ibtn" data-aria="help"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
 </div>
-<button id="rst">New game</button>
-<div id="over"><h2>Game over</h2><p id="final"></p><button>Try again</button></div>
+<button id="rst" data-t="newGame"></button>
+<div id="over"><h2 data-t="gameOver"></h2><p id="final"></p><button data-t="tryAgain"></button></div>
 <div id="help">
-  <div class="langs"><button data-l="en">English</button><button data-l="ja">日本語</button></div>
-  <div class="main"><div class="body"><h2 id="htitle"></h2><ul id="hlist"></ul></div></div>
-  <button id="hclose" class="ibtn"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+  <div class="langs"><button data-l="en" lang="en">English</button><button data-l="ja" lang="ja">日本語</button></div>
+  <div class="main"><div class="body"><h2 data-t="title"></h2><ul id="hlist"></ul></div></div>
+  <button id="hclose" class="ibtn" data-aria="close"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
 </div>
 
 <script>
@@ -88,14 +88,30 @@
   const COLORS = { 2: '#ffffff', 4: '#c4c4bf', 8: '#a3a39e', 16: '#82827d', 32: '#63635f', 64: '#484845',
                    128: '#343432', 256: '#242423', 512: '#181817', 1024: '#0e0e0d', 2048: '#000000' };
 
-  const HELP = {
+  const TEXT = {
     en: {
-      title: 'How to play', aria: { help: 'Help', close: 'Close' },
+      title: 'How to play',
       items: ['The goal is to merge numbered tiles into a 2048 tile.', 'Swipe, or use the arrow keys, and every tile slides that way.', 'When two tiles with the same number touch, they merge into one with double the value.', 'The game is over when the board is full and no move is left.'],
+      help: 'Help',
+      close: 'Close',
+      score: 'SCORE',
+      best: 'BEST',
+      newGame: 'New game',
+      gameOver: 'Game over',
+      tryAgain: 'Try again',
+      final: n => `Score ${n}`,
     },
     ja: {
-      title: '遊び方', aria: { help: 'ヘルプ', close: '閉じる' },
+      title: '遊び方',
       items: ['数字のタイルを合体させて、2048を目指すゲームです。', 'スワイプ（または矢印キー）すると、すべてのタイルがその向きに滑ります。', '同じ数字のタイルがぶつかると、合体して数字が2倍になります。', '盤面が埋まって動かせなくなると、ゲームオーバーです。'],
+      help: 'ヘルプ',
+      close: '閉じる',
+      score: 'スコア',
+      best: 'ベスト',
+      newGame: '新しいゲーム',
+      gameOver: 'ゲームオーバー',
+      tryAgain: 'もう一度',
+      final: n => `スコア ${n}`,
     },
   };
 
@@ -108,21 +124,22 @@
   const $over = document.getElementById('over');
   const $final = document.getElementById('final');
   const $help = document.getElementById('help');
-  const $htitle = document.getElementById('htitle');
   const $hlist = document.getElementById('hlist');
   const $langBar = document.querySelector('.langs');
   const $langs = $langBar.querySelectorAll('button');
   const $qbtn = document.getElementById('qbtn');
   const $hclose = document.getElementById('hclose');
 
+  let tx;
   const setLang = l => {
-    $help.lang = $qbtn.lang = l;
-    const h = HELP[l];
-    $htitle.textContent = h.title;
-    $hlist.replaceChildren(...h.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
-    $qbtn.setAttribute('aria-label', h.aria.help);
-    $hclose.setAttribute('aria-label', h.aria.close);
+    tx = TEXT[l];
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-t]').forEach(e => { e.textContent = tx[e.dataset.t]; });
+    document.querySelectorAll('[data-aria]').forEach(e => e.setAttribute('aria-label', tx[e.dataset.aria]));
+    $hlist.replaceChildren(...tx.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
     $langs.forEach(b => b.classList.toggle('on', b.dataset.l === l));
+    if (over) renderOver();
+    if (helpOpen) placeHelp(); // the HUD labels changed, so the ? may have moved
   };
   // the ? sits in the HUD row, whose position is only known at runtime: the close button copies its box,
   // the language switch is level with it, and the centred column's left edge mirrors its right edge
@@ -243,10 +260,12 @@
     return false;
   };
 
+  const renderOver = () => { $final.textContent = tx.final(score); };
+
   const gameOver = () => {
     over = true;
     overTimer = setTimeout(() => {
-      $final.textContent = 'Score ' + score;
+      renderOver();
       $over.classList.add('show');
     }, 450);
   };
