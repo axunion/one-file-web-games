@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<!-- World: midday lagoon - a butter-yellow pufferfish threads the gaps between old sunken pipes over warm sand; sunlit turquoise water, weathered pipes in rust, moss and pastel, cream HUD bubbles -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Puff Reef</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 5H23C27.5 5 30 7.5 31 12L31.5 21C31.8 25 30 27.5 27 27.5C24.5 27.5 23.5 26 22.5 24L21.5 22H10.5L9.5 24C8.5 26 7.5 27.5 5 27.5C2 27.5 0.2 25 0.5 21L1 12C2 7.5 4.5 5 9 5Z' fill='%23ff6b4a'/%3E%3Cpath d='M9 10.5v7M5.5 14h7' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='21.5' cy='15.5' r='2.2' fill='%23fff'/%3E%3Ccircle cx='26' cy='12' r='2.2' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root { --deep: #0b4a5a; --sea: #127c8c; --foam: #f4fdf6; --sun: #ffc233; --accent: #f0675c; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: var(--sea); color: var(--foam);
+    font-family: "Avenir Next Rounded", "Hiragino Maru Gothic ProN", "Varela Round", "Trebuchet MS", sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    touch-action: none; overscroll-behavior: none;
+  }
+  body { padding-bottom: env(safe-area-inset-bottom); } /* read back in layout() as a px value */
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #hud {
+    position: fixed; z-index: 1; left: 0; right: 0; top: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    padding: calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 16px) 0 calc(env(safe-area-inset-left) + 16px);
+    max-width: 560px; margin: 0 auto; pointer-events: none; /* taps on the empty HUD strip still reach the canvas */
+  }
+  #hud button { pointer-events: auto; }
+  .ctl { display: flex; gap: 8px; justify-self: end; }
+  #tally { text-align: center; }
+  #tally b {
+    display: block; font-size: 44px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 0 var(--deep), 0 0 12px rgba(11, 74, 90, .55);
+  }
+  #tally small {
+    display: block; margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: .18em; color: var(--foam);
+    text-shadow: 0 1px 0 var(--deep);
+  }
+  button {
+    width: 42px; height: 42px; border: 2px solid var(--foam); border-radius: 50%; padding: 0; color: var(--foam); cursor: pointer;
+    display: grid; place-items: center; background: rgba(11, 74, 90, .45);
+  }
+  button:active { background: rgba(11, 74, 90, .8); }
+  button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  button svg .solid { fill: currentColor; stroke-width: 1.2; }
+  .x { display: none; }
+  #snd.off .x { display: inline; }
+  #snd.off .wave { display: none; }
+  #snd.off { opacity: .5; }
+  #hint {
+    position: fixed; left: 50%; top: 24%; transform: translateX(-50%); width: max-content; max-width: 88vw;
+    padding: 10px 20px; border-radius: 999px; background: rgba(11, 74, 90, .78);
+    text-align: center; font-size: 15px; font-weight: 700; line-height: 1.4; letter-spacing: .04em; pointer-events: none;
+  }
+  #over {
+    position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; background: rgba(11, 74, 90, .82); cursor: pointer;
+  }
+  #over.show { display: flex; }
+  #over h1 { margin: 0; font-size: 44px; font-weight: 800; letter-spacing: .04em; color: var(--accent); text-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
+  #over p { margin: 0; font-size: 26px; font-weight: 700; }
+  #over .tap { padding: 8px 20px; border-radius: 999px; background: var(--sun); color: var(--deep); font-size: 16px; }
+  #help {
+    position: fixed; inset: 0; z-index: 2; display: none; flex-direction: column; align-items: center; background: var(--deep);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 28px); /* the top and sides are set by placeHelp() */
+  }
+  #help.show { display: flex; }
+  #hclose { position: fixed; }
+  #help .langs { display: grid; flex: none; grid-template-columns: 1fr 1fr; width: 160px; height: 36px; gap: 8px; align-self: flex-start; }
+  #help .langs button { width: auto; height: 100%; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 700; }
+  #help .langs button.on { background: var(--sun); border-color: var(--sun); color: var(--deep); }
+  /* the body sits in a fixed-height box centred vertically, text top-aligned inside, so switching language moves nothing */
+  #help .main { width: min(100%, 340px); flex: 1; min-height: 0; display: flex; align-items: center; padding-bottom: 40px; }
+  #help .body { width: 100%; height: 430px; max-height: 100%; }
+  #help h2 { margin: 0 0 22px; font-size: 26px; line-height: 44px; font-weight: 800; color: var(--sun); }
+  #help ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 18px; counter-reset: n; }
+  #help li {
+    position: relative; padding-left: 40px; font-size: 15px; line-height: 1.7; counter-increment: n;
+    text-wrap: pretty; word-break: auto-phrase; line-break: strict;
+  }
+  #help li::before {
+    content: counter(n); position: absolute; left: 0; top: 2px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: var(--foam); font-size: 14px; font-weight: 800; line-height: 26px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud">
+  <button id="rst" data-aria="restart"><svg viewBox="0 0 24 24"><path d="M19.05 14.57A7.5 7.5 0 1 1 15.75 5.5"/><path class="solid" d="M17.35 2.73L18.69 7.2L14.15 8.27Z"/></svg></button>
+  <div id="tally"><b id="score">0</b><small><span data-t="best"></span> <span id="best">0</span></small></div>
+  <div class="ctl">
+  <button id="snd" data-aria="sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+  <button id="qbtn" data-aria="help"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
+  </div>
+</div>
+<div id="hint" data-t="hint"></div>
+<div id="over"><h1 data-t="over"></h1><p id="final"></p><p class="tap" data-t="retry"></p></div>
+<div id="help">
+  <div class="langs"><button data-l="en" lang="en">English</button><button data-l="ja" lang="ja">日本語</button></div>
+  <div class="main"><div class="body"><h2 data-t="title"></h2><ul id="hlist"></ul></div></div>
+  <button id="hclose" data-aria="close"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+</div>
+
+<script>
+(() => {
+  const KEY = 'ofwg:puff-reef';
+  // The world is WH units tall and scaled to the viewport height; its width follows the (capped) column width.
+  const WH = 640, COL_MAX = 560, SEABED = 40, BOT_MARGIN = 36;
+  const FISH_X = 90; // fixed in world units, so a resize never moves the fish relative to the pipes
+  // puff p in 0..1 sets both the body radius and the buoyancy: upward acceleration = BUOY * p - GRAVITY - DRAG * (upward speed)
+  const R_MIN = 13, R_MAX = 28, HIT = 0.85;
+  const INFLATE = 5, DEFLATE = 4.5, BUOY = 1000, GRAVITY = 450, DRAG = 4;
+  const PW = 54, CAP_W = 6, CAP_H = 20, SPACING = 190;
+  const GAP_START = 145, GAP_MIN = 66, GAP_STEP = 2, MAX_SHIFT = 110;
+  const SPEED_START = 100, SPEED_MAX = 150, SPEED_STEP = 2;
+  const BUBBLE_MS = 1400, REEF_GAP = 150;
+  // body, shaded side, highlight: rust, moss, pink, lavender and sand-yellow pipes
+  const PIPES = [['#e0803c', '#a95a22', '#ffb372'], ['#5fb86a', '#3b8348', '#9be09f'], ['#ee6f8f', '#b84563', '#ff9db4'], ['#9b86e0', '#6a56ad', '#c8baf5'], ['#e9c04a', '#b08d24', '#ffe08a']];
+  const SCALE = [0, 2, 4, 7, 9];
+
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const $hud = document.getElementById('hud');
+  const $score = document.getElementById('score');
+  const $best = document.getElementById('best');
+  const $hint = document.getElementById('hint');
+  const $over = document.getElementById('over');
+  const $final = document.getElementById('final');
+  const $snd = document.getElementById('snd');
+
+  const TEXT = {
+    en: {
+      title: 'How to play',
+      hint: 'Hold to puff up · slip through',
+      items: [
+        'You are a pufferfish, and the goal is to swim through as many gaps between sunken pipes as you can.',
+        'Press and hold anywhere, or hold Space, and the fish puffs up; let go and it slims down.',
+        'A puffed fish floats up but is too wide for tight gates, while a slim fish sinks.',
+        'The game is over when the fish touches a pipe or the sandy seabed.'
+      ],
+      help: 'Help',
+      close: 'Close',
+      restart: 'Restart',
+      sound: 'Sound',
+      best: 'BEST',
+      over: 'Bonk!',
+      retry: 'Tap to retry',
+      final: n => (n === 1 ? '1 gate' : `${n} gates`),
+    },
+    ja: {
+      title: '遊び方',
+      hint: '長押しでふくらむ・すき間をくぐる',
+      items: [
+        'ふぐになって、沈んだ土管の間をできるだけ多くくぐり抜けるゲームです。',
+        '画面のどこかを長押し（またはスペースキー）すると体がふくらみ、離すとしぼみます。',
+        'ふくらむと浮かびますが体が太くなって狭いゲートを通れず、しぼむと沈みます。',
+        '土管か砂の海底にぶつかるとゲームオーバーです。'
+      ],
+      help: 'ヘルプ',
+      close: '閉じる',
+      restart: 'リスタート',
+      sound: 'サウンド',
+      best: 'ベスト',
+      over: 'ごつん！',
+      retry: 'タップでリトライ',
+      final: n => `${n}ゲート`,
+    },
+  };
+  const $help = document.getElementById('help');
+  const $qbtn = document.getElementById('qbtn');
+  const $hclose = document.getElementById('hclose');
+  const $hlist = document.getElementById('hlist');
+  const $langBar = document.querySelector('.langs');
+  const $langs = $langBar.querySelectorAll('button');
+
+  let tx;
+  const setLang = l => {
+    tx = TEXT[l];
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-t]').forEach(e => { e.textContent = tx[e.dataset.t]; });
+    document.querySelectorAll('[data-aria]').forEach(e => e.setAttribute('aria-label', tx[e.dataset.aria]));
+    $hlist.replaceChildren(...tx.items.map(t => Object.assign(document.createElement('li'), { textContent: t })));
+    $langs.forEach(b => b.classList.toggle('on', b.dataset.l === l));
+    if (over) renderOver();
+    if (helpOpen) placeHelp(); // the HUD labels changed, so the ? may have moved
+  };
+  // the ? sits in the HUD row, whose position is only known at runtime: the close button copies its box,
+  // the language switch is level with it, and the centred column's left edge mirrors its right edge
+  const placeHelp = () => {
+    const r = $qbtn.getBoundingClientRect(), barH = $langBar.offsetHeight, w = document.documentElement.clientWidth;
+    Object.assign($hclose.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    $help.style.paddingTop = r.top + (r.height - barH) / 2 + 'px';
+    $help.style.paddingInline = w - r.right + 'px';
+  };
+  let helpOpen = false;
+  // inert keeps Tab and Enter from reaching the controls behind the panel
+  const showHelp = open => {
+    helpOpen = open;
+    $help.classList.toggle('show', open);
+    for (const el of [$hud, $over]) el.inert = open;
+    if (open) { holding = false; placeHelp(); $hclose.focus(); }
+  };
+
+  let fish, pillars, bubbles, started, over, overTimer, score, best = 0, made, dist, holding = false, trailAcc, shake;
+  let topMargin = 70, W = 0, H = 0, dpr = 1, s = 1, colX = 0, colW = 0, LW = 0, floorY = 0;
+
+  try { best = parseInt(localStorage.getItem(KEY), 10) || 0; } catch (e) { /* storage unavailable */ }
+
+  // muting silences a master gain, so tones already scheduled go quiet too
+  let ac = null, master = null, muted = false;
+  const audio = () => {
+    if (!ac) {
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+      master = ac.createGain();
+      master.gain.value = muted ? 0 : 1;
+      master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  };
+  const tone = (a, freq, delay, dur, type, vol) => {
+    const t = a.currentTime + delay;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.02);
+  };
+  // a touch pointerdown is no user activation, so the tone only plays once the context already runs
+  const playPuff = () => { if (ac && ac.state === 'running') tone(ac, 300, 0, 0.12, 'sine', 0.1); };
+  const playGate = n => {
+    const a = audio(); if (!a) return;
+    tone(a, 523 * 2 ** ((SCALE[n % SCALE.length] + 12 * Math.floor(n / SCALE.length % 2)) / 12), 0, 0.2, 'triangle', 0.14);
+  };
+  const playOver = () => {
+    const a = audio(); if (!a) return;
+    [5, 2, -2].forEach((st, i) => tone(a, 330 * 2 ** (st / 12), i * 0.12, 0.35, 'triangle', 0.16));
+  };
+
+  const radius = p => R_MIN + (R_MAX - R_MIN) * p;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  // static scenery, built once: the world is WH tall at any viewport, so the gradient never changes
+  const sea = ctx.createLinearGradient(0, 0, 0, WH);
+  sea.addColorStop(0, '#86e3d4');
+  sea.addColorStop(0.55, '#34aeb0');
+  sea.addColorStop(1, '#127c8c');
+  const reefs = Array.from({ length: 9 }, (_, i) => {
+    const w = rnd(50, 90);
+    return { x: i * REEF_GAP + rnd(0, 60), w, h: rnd(50, 130), round: [w / 2, w / 2, 0, 0] };
+  });
+  const ambient = Array.from({ length: 26 }, () => ({ x: Math.random(), y: Math.random(), v: rnd(0.02, 0.07), r: rnd(1.5, 4.5), ph: rnd(0, 6.3) }));
+
+  const spawn = x => {
+    const gap = Math.max(GAP_MIN, GAP_START - made * GAP_STEP);
+    const lo = topMargin + gap / 2, hi = floorY - BOT_MARGIN - gap / 2;
+    const prev = pillars.length ? pillars[pillars.length - 1].gy : (lo + hi) / 2;
+    const gy = Math.min(hi, Math.max(lo, prev + rnd(-MAX_SHIFT, MAX_SHIFT)));
+    // hue and texture are fixed per pillar: smooth, ribbed or fluted
+    const hue = PIPES[Math.floor(Math.random() * PIPES.length)], tex = Math.floor(Math.random() * 3);
+    pillars.push({ x, gy, top: gy - gap / 2, bot: gy + gap / 2, hue, tex, off: rnd(0, 30), passed: false });
+    made++;
+  };
+
+  const fillPillars = () => {
+    while (pillars[pillars.length - 1].x < LW + SPACING) spawn(pillars[pillars.length - 1].x + SPACING);
+  };
+
+  const newGame = () => {
+    fish = { y: (topMargin + floorY) / 2, vy: 0, p: GRAVITY / BUOY };
+    pillars = []; bubbles = [];
+    started = false; over = false; holding = false;
+    score = 0; made = 0; dist = 0; trailAcc = 0; shake = 0;
+    clearTimeout(overTimer);
+    $over.classList.remove('show');
+    $hint.hidden = false;
+    spawn(FISH_X + 320);
+    fillPillars();
+    renderHud();
+  };
+
+  const renderHud = () => { $score.textContent = score; $best.textContent = best; };
+  const renderOver = () => { $final.textContent = tx.final(score); };
+
+  const die = t => {
+    over = true; holding = false; shake = 1;
+    for (let i = 0; i < 16; i++) {
+      bubbles.push({ x: FISH_X + rnd(-10, 10), y: fish.y + rnd(-10, 10), vx: rnd(-50, 50), vy: rnd(-130, -30), r: rnd(2.5, 7), t });
+    }
+    playOver();
+    renderOver();
+    overTimer = setTimeout(() => $over.classList.add('show'), 700);
+  };
+
+  const hitsRect = (cx, cy, r, x1, y1, x2, y2) => {
+    const dx = cx - Math.max(x1, Math.min(cx, x2)), dy = cy - Math.max(y1, Math.min(cy, y2));
+    return dx * dx + dy * dy < r * r;
+  };
+
+  const step = (dt, t) => {
+    const speed = Math.min(SPEED_MAX, SPEED_START + score * SPEED_STEP);
+    fish.p = Math.max(0, Math.min(1, fish.p + (holding ? INFLATE : -DEFLATE) * dt));
+    const r = radius(fish.p);
+    fish.vy += (GRAVITY - BUOY * fish.p - DRAG * fish.vy) * dt; // y grows downward
+    fish.y += fish.vy * dt;
+    if (fish.y - r < 0) { fish.y = r; if (fish.vy < 0) fish.vy = 0; }
+
+    dist += speed * dt;
+    pillars.forEach(p => { p.x -= speed * dt; });
+    while (pillars[0].x < -PW - CAP_W) pillars.shift();
+    fillPillars();
+
+    const hr = r * HIT;
+    if (fish.y + hr > floorY) return die(t);
+    for (const p of pillars) {
+      if (FISH_X + hr < p.x - CAP_W || FISH_X - hr > p.x + PW + CAP_W) continue;
+      const { top, bot } = p;
+      if (hitsRect(FISH_X, fish.y, hr, p.x, -Infinity, p.x + PW, top) || hitsRect(FISH_X, fish.y, hr, p.x, bot, p.x + PW, Infinity) ||
+        hitsRect(FISH_X, fish.y, hr, p.x - CAP_W, top - CAP_H, p.x + PW + CAP_W, top) ||
+        hitsRect(FISH_X, fish.y, hr, p.x - CAP_W, bot, p.x + PW + CAP_W, bot + CAP_H)) return die(t);
+      if (!p.passed && p.x + PW / 2 < FISH_X) {
+        p.passed = true; score++;
+        playGate(score);
+        if (score > best) {
+          best = score;
+          try { localStorage.setItem(KEY, String(best)); } catch (e) { /* storage unavailable */ }
+        }
+        renderHud();
+      }
+    }
+
+    trailAcc += dt * (0.5 + fish.p * 3);
+    if (trailAcc > 0.3) {
+      trailAcc = 0;
+      bubbles.push({ x: FISH_X - r, y: fish.y + rnd(-r, r) * 0.5, vx: -speed * 0.4, vy: rnd(-40, -15), r: rnd(1.5, 3.5), t });
+    }
+  };
+
+  const press = on => {
+    if (helpOpen || over) { holding = false; return; }
+    if (on && !started) { started = true; $hint.hidden = true; }
+    if (on && !holding) playPuff();
+    holding = on;
+  };
+
+  let pid = null;
+  cv.addEventListener('pointerdown', e => {
+    if (pid !== null) return;
+    pid = e.pointerId;
+    cv.setPointerCapture(pid);
+    press(true);
+  });
+  const release = e => {
+    if (e.pointerId !== pid) return;
+    pid = null;
+    press(false);
+    audio(); // touch pointerup counts as a user activation, unlike pointerdown
+  };
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', release);
+  ['gesturestart', 'contextmenu', 'dblclick'].forEach(n => window.addEventListener(n, e => e.preventDefault()));
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  const isHold = e => e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w';
+  window.addEventListener('keydown', e => {
+    if (helpOpen) { if (e.key === 'Escape') showHelp(false); return; }
+    if (!isHold(e)) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    audio();
+    press(true);
+  });
+  window.addEventListener('blur', () => press(false)); // a keyup that happens elsewhere is never seen
+  window.addEventListener('keyup', e => {
+    if (!isHold(e) || helpOpen) return;
+    e.preventDefault();
+    press(false);
+  });
+
+  $qbtn.addEventListener('click', () => showHelp(true));
+  $hclose.addEventListener('click', () => showHelp(false));
+  $langs.forEach(b => b.addEventListener('click', () => setLang(b.dataset.l)));
+  setLang(navigator.language.startsWith('ja') ? 'ja' : 'en');
+
+  $over.addEventListener('click', newGame);
+  document.getElementById('rst').addEventListener('click', newGame);
+  $snd.addEventListener('click', () => {
+    muted = !muted;
+    $snd.classList.toggle('off', muted);
+    if (master) master.gain.value = muted ? 0 : 1;
+    audio();
+  });
+
+  const layout = () => {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    s = H / WH;
+    colW = Math.min(W, COL_MAX);
+    colX = (W - colW) / 2;
+    LW = colW / s;
+    floorY = WH - SEABED - (parseFloat(getComputedStyle(document.body).paddingBottom) || 0) / s;
+    // gates never open under the HUD, which grows with the top safe-area inset
+    topMargin = Math.max(70, ($hud.getBoundingClientRect().bottom + 8) / s);
+    if (fish) {
+      fish.y = Math.min(fish.y, floorY - R_MIN - (R_MAX - R_MIN) * fish.p); // keep the fish above a seabed that moved up
+      fillPillars();
+    }
+  };
+  window.addEventListener('resize', () => { layout(); if (helpOpen) placeHelp(); });
+
+  const disc = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
+
+  const drawPipe = (p, from, to, capY) => {
+    const [base, dark, light] = p.hue, len = to - from;
+    ctx.fillStyle = dark; ctx.fillRect(p.x, from, PW, len);
+    ctx.fillStyle = base; ctx.fillRect(p.x, from, PW * 0.7, len);
+    ctx.fillStyle = light; ctx.fillRect(p.x + 7, from, 4, len);
+    ctx.fillStyle = 'rgba(0,0,0,.14)';
+    if (p.tex === 1) for (let y = from + p.off; y < to; y += 30) ctx.fillRect(p.x, y, PW, 5);
+    if (p.tex === 2) for (let x = p.x + 16; x < p.x + PW - 4; x += 12) ctx.fillRect(x, from, 3, len);
+    ctx.fillStyle = dark;
+    ctx.beginPath(); ctx.roundRect(p.x - CAP_W, capY, PW + CAP_W * 2, CAP_H, 6); ctx.fill();
+    ctx.fillStyle = base;
+    ctx.beginPath(); ctx.roundRect(p.x - CAP_W, capY, PW + CAP_W * 1.4, CAP_H - 3, 6); ctx.fill();
+    ctx.fillStyle = light; ctx.fillRect(p.x - 1, capY + 3, 4, CAP_H - 9);
+  };
+
+  const drawFish = (fx, fy, r, p, vy, t) => {
+    const wag = Math.sin(t / 110) * 0.35 * (1 - p * 0.5);
+    ctx.save();
+    ctx.translate(fx, fy);
+    ctx.rotate(over ? 0.5 : Math.max(-0.5, Math.min(0.5, vy / 420)));
+    ctx.save();
+    ctx.translate(-r * 0.8, 0); ctx.rotate(wag);
+    ctx.fillStyle = '#f29a1f';
+    ctx.beginPath(); ctx.moveTo(r * 0.3, 0); ctx.lineTo(-r * 0.7, -r * 0.6); ctx.lineTo(-r * 0.55, 0); ctx.lineTo(-r * 0.7, r * 0.6); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    const sp = Math.max(0, (p - 0.2) / 0.8) * r * 0.5;
+    if (sp > 0.5) {
+      ctx.fillStyle = '#e07a14';
+      for (let i = 0; i < 12; i++) {
+        const a = i * Math.PI / 6 + 0.26, c = Math.cos(a), sn = Math.sin(a), w = 0.14;
+        ctx.beginPath();
+        ctx.moveTo(c * r * 0.9 - sn * r * w, sn * r * 0.9 + c * r * w);
+        ctx.lineTo(c * (r + sp), sn * (r + sp));
+        ctx.lineTo(c * r * 0.9 + sn * r * w, sn * r * 0.9 - c * r * w);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = '#ffc233'; disc(0, 0, r);
+    ctx.fillStyle = '#fff0bd';
+    ctx.beginPath(); ctx.ellipse(r * 0.05, r * 0.5, r * 0.68, r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(242,154,31,.55)';
+    disc(-r * 0.2, -r * 0.55, r * 0.14); disc(r * 0.05, -r * 0.68, r * 0.1); disc(-r * 0.5, -r * 0.3, r * 0.1);
+    ctx.save();
+    ctx.translate(-r * 0.1, r * 0.15); ctx.rotate(-wag * 1.4);
+    ctx.fillStyle = '#f29a1f';
+    ctx.beginPath(); ctx.ellipse(-r * 0.15, 0, r * 0.3, r * 0.15, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    const ex = r * 0.42, ey = -r * 0.25;
+    if (over) {
+      ctx.strokeStyle = '#5a2a10'; ctx.lineWidth = Math.max(1.5, r * 0.09); ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(ex - r * 0.14, ey - r * 0.14); ctx.lineTo(ex + r * 0.14, ey + r * 0.14);
+      ctx.moveTo(ex + r * 0.14, ey - r * 0.14); ctx.lineTo(ex - r * 0.14, ey + r * 0.14);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#fff'; disc(ex, ey, r * 0.26);
+      ctx.fillStyle = '#3b2412'; disc(ex + r * 0.05, ey + r * 0.02, r * 0.13);
+      ctx.fillStyle = '#fff'; disc(ex + r * 0.09, ey - r * 0.03, r * 0.04);
+    }
+    ctx.fillStyle = '#c4571b'; disc(r * 0.93, r * 0.14, r * (0.07 + 0.1 * p));
+    ctx.restore();
+  };
+
+  const render = t => {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#127c8c';
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(colX + (shake && (Math.random() - 0.5) * 8 * shake), shake && (Math.random() - 0.5) * 8 * shake);
+    ctx.scale(s, s);
+    ctx.beginPath(); ctx.rect(0, 0, LW, WH); ctx.clip();
+    ctx.fillStyle = sea; ctx.fillRect(0, 0, LW, WH);
+
+    ctx.fillStyle = 'rgba(255,255,255,.07)';
+    for (let i = 0; i < 3; i++) {
+      const x = ((i * 190 + t / 90) % (LW + 300)) - 150;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 50, 0); ctx.lineTo(x - 70, floorY); ctx.lineTo(x - 150, floorY); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(14,110,125,.55)';
+    const span = reefs.length * REEF_GAP;
+    reefs.forEach(r => {
+      const x = (((r.x - dist * 0.25) % span) + span) % span - 120;
+      ctx.beginPath(); ctx.roundRect(x, floorY - r.h, r.w, r.h + 10, r.round); ctx.fill();
+    });
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ambient.forEach(a => {
+      const y = (((a.y - t * a.v / 1000) % 1) + 1) % 1;
+      disc(a.x * LW + Math.sin(t / 700 + a.ph) * 6, y * floorY, a.r);
+    });
+
+    pillars.forEach(p => {
+      const { top, bot } = p;
+      drawPipe(p, -30, top - CAP_H, top - CAP_H);
+      drawPipe(p, bot + CAP_H, floorY + 4, bot);
+    });
+
+    ctx.fillStyle = '#f1d9a0'; ctx.fillRect(0, floorY, LW, WH - floorY);
+    ctx.fillStyle = '#dcbc7c'; ctx.fillRect(0, floorY, LW, 5);
+    ctx.fillStyle = '#e6c88a';
+    for (let i = 0; i < 14; i++) {
+      const x = (((i * 61 - dist) % 854) + 854) % 854 - 40;
+      ctx.beginPath(); ctx.ellipse(x, floorY + 16 + (i % 3) * 9, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // the pipes are half buried in sand
+    ctx.fillStyle = '#dcbc7c';
+    pillars.forEach(p => { ctx.beginPath(); ctx.ellipse(p.x + PW / 2, floorY + 3, 42, 9, 0, Math.PI, 0); ctx.fill(); });
+
+    bubbles.forEach(b => {
+      const age = (t - b.t) / BUBBLE_MS;
+      ctx.globalAlpha = 0.7 * (1 - age);
+      ctx.fillStyle = '#e8fffa';
+      disc(b.x, b.y, b.r);
+    });
+    ctx.globalAlpha = 1;
+
+    const r = radius(fish.p);
+    const fy = started ? fish.y : fish.y + Math.sin(t / 380) * 8;
+    drawFish(FISH_X, fy, r, fish.p, fish.vy, t);
+    ctx.restore();
+  };
+
+  let last = 0;
+  const frame = t => {
+    requestAnimationFrame(frame); // first, so one throwing frame cannot end the loop
+    const dt = Math.min((t - last) / 1000, 1 / 30);
+    last = t;
+    if (started && !over && !helpOpen) step(dt, t);
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (t - b.t > BUBBLE_MS) bubbles.splice(i, 1);
+    }
+    shake = Math.max(0, shake - dt / 0.4);
+    if (!helpOpen) render(t); // the help panel is opaque, so nothing behind it needs drawing
+  };
+
+  layout();
+  newGame();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
