@@ -108,8 +108,11 @@
   // puff p in 0..1 sets both the body radius and the buoyancy: upward acceleration = BUOY * p - GRAVITY - DRAG * (upward speed)
   const R_MIN = 13, R_MAX = 28, HIT = 0.85;
   const INFLATE = 5, DEFLATE = 4.5, BUOY = 1000, GRAVITY = 450, DRAG = 4;
-  const PW = 54, CAP_W = 6, CAP_H = 20, SPACING = 190;
-  const GAP_START = 145, GAP_MIN = 66, GAP_STEP = 2, MAX_SHIFT = 110;
+  const PW = 54, CAP_W = 6, CAP_H = 20;
+  const SP_BASE = 135, SP_RAND = 80, SP_SHIFT = 0.9, AHEAD = 380; // spacing = base + random + a share of the climb, so a big climb gets room; AHEAD exceeds the largest spacing
+  const GAP_START = 145, GAP_MIN = 56, GAP_STEP = 2.5, MAX_SHIFT = 110; // a tunnel gate (x0.82) ends up narrower than the puffed fish
+  const KINDS = ['free', 'stairs', 'zig', 'tunnel'];
+  const PEARL_R = 6, PERFECT = 0.12, CUR_W = 46, CUR_ACC = 650, POP_MS = 900;
   const SPEED_START = 100, SPEED_MAX = 150, SPEED_STEP = 2;
   const BUBBLE_MS = 1400, REEF_GAP = 150;
   // body, shaded side, highlight: rust, moss, pink, lavender and sand-yellow pipes
@@ -131,7 +134,7 @@
       title: 'How to play',
       hint: 'Hold to puff up · slip through',
       items: [
-        'You are a pufferfish, and the goal is to swim through as many gaps between sunken pipes as you can.',
+        'You are a pufferfish: slip through the gaps between sunken pipes and grab pearls for points.',
         'Press and hold anywhere, or hold Space, and the fish puffs up; let go and it slims down.',
         'A puffed fish floats up but is too wide for tight gates, while a slim fish sinks.',
         'The game is over when the fish touches a pipe or the sandy seabed.'
@@ -143,13 +146,14 @@
       best: 'BEST',
       over: 'Bonk!',
       retry: 'Tap to retry',
-      final: n => (n === 1 ? '1 gate' : `${n} gates`),
+      perfect: 'Perfect!',
+      final: n => (n === 1 ? '1 pt' : `${n} pts`),
     },
     ja: {
       title: '遊び方',
       hint: '長押しでふくらむ・すき間をくぐる',
       items: [
-        'ふぐになって、沈んだ土管の間をできるだけ多くくぐり抜けるゲームです。',
+        'ふぐになって、沈んだ土管の間をくぐり抜け、真珠も集めて高得点を目指すゲームです。',
         '画面のどこかを長押し（またはスペースキー）すると体がふくらみ、離すとしぼみます。',
         'ふくらむと浮かびますが体が太くなって狭いゲートを通れず、しぼむと沈みます。',
         '土管か砂の海底にぶつかるとゲームオーバーです。'
@@ -161,7 +165,8 @@
       best: 'ベスト',
       over: 'ごつん！',
       retry: 'タップでリトライ',
-      final: n => `${n}ゲート`,
+      perfect: 'ぴったり！',
+      final: n => `${n}点`,
     },
   };
   const $help = document.getElementById('help');
@@ -199,7 +204,7 @@
     if (open) { holding = false; placeHelp(); $hclose.focus(); }
   };
 
-  let fish, pillars, bubbles, started, over, overTimer, score, best = 0, made, dist, holding = false, trailAcc, shake;
+  let fish, pillars, currents, bubbles, pops, chunk, started, over, overTimer, score, best = 0, gates, made, dist, clock, holding = false, trailAcc, shake;
   let topMargin = 70, W = 0, H = 0, dpr = 1, s = 1, colX = 0, colW = 0, LW = 0, floorY = 0;
 
   try { best = parseInt(localStorage.getItem(KEY), 10) || 0; } catch (e) { /* storage unavailable */ }
@@ -232,6 +237,11 @@
     const a = audio(); if (!a) return;
     tone(a, 523 * 2 ** ((SCALE[n % SCALE.length] + 12 * Math.floor(n / SCALE.length % 2)) / 12), 0, 0.2, 'triangle', 0.14);
   };
+  const playPearl = () => {
+    const a = audio(); if (!a) return;
+    tone(a, 1319, 0, 0.1, 'sine', 0.12);
+    tone(a, 1760, 0.07, 0.16, 'sine', 0.12);
+  };
   const playOver = () => {
     const a = audio(); if (!a) return;
     [5, 2, -2].forEach((st, i) => tone(a, 330 * 2 ** (st / 12), i * 0.12, 0.35, 'triangle', 0.16));
@@ -251,31 +261,72 @@
   });
   const ambient = Array.from({ length: 26 }, () => ({ x: Math.random(), y: Math.random(), v: rnd(0.02, 0.07), r: rnd(1.5, 4.5), ph: rnd(0, 6.3) }));
 
-  const spawn = x => {
-    const gap = Math.max(GAP_MIN, GAP_START - made * GAP_STEP);
+  // later gates grow more likely to carry pearls, to move, or to sit beside a current
+  const ramp = (from, per, max) => Math.min(max, Math.max(0, (made - from) * per));
+
+  // gates come in short runs (stairs, zigzag, a narrow tunnel followed by a roomy rest gate) mixed with free ones
+  const spawn = () => {
+    if (chunk.left <= 0) {
+      chunk = chunk.kind === 'tunnel' ? { kind: 'rest', left: 1, dir: 1 }
+        : { kind: KINDS[Math.floor(Math.random() * KINDS.length)], left: 3 + Math.floor(Math.random() * 2), dir: Math.random() < 0.5 ? -1 : 1 };
+    }
+    chunk.left--;
+    let shift, mul = 1;
+    switch (chunk.kind) {
+      case 'stairs': shift = chunk.dir * rnd(55, 80); break;
+      case 'zig': shift = chunk.dir * rnd(80, MAX_SHIFT); chunk.dir = -chunk.dir; break;
+      case 'tunnel': shift = rnd(-8, 8); mul = 0.82; break;
+      case 'rest': shift = rnd(-40, 40); mul = 1.25; break;
+      default: shift = rnd(-MAX_SHIFT, MAX_SHIFT);
+    }
+    const gap = Math.max(GAP_MIN, GAP_START - made * GAP_STEP) * mul;
     const lo = topMargin + gap / 2, hi = floorY - BOT_MARGIN - gap / 2;
-    const prev = pillars.length ? pillars[pillars.length - 1].gy : (lo + hi) / 2;
-    const gy = Math.min(hi, Math.max(lo, prev + rnd(-MAX_SHIFT, MAX_SHIFT)));
+    const last = pillars[pillars.length - 1];
+    const prev = last ? last.gy : (lo + hi) / 2;
+    const raw = prev + shift, gy = Math.min(hi, Math.max(lo, raw));
+    if (chunk.kind === 'stairs' && raw !== gy) chunk.dir = -chunk.dir;
+    const room = Math.min(gy - lo, hi - gy);
+    const amp = chunk.kind !== 'tunnel' && room >= 12 && Math.random() < ramp(8, 0.035, 0.5) ? Math.min(rnd(14, 26), room) : 0;
+    // two neighbouring moving gates can swing apart, so both amplitudes count as climb
+    const x = last ? last.x + SP_BASE + rnd(0, SP_RAND) + (Math.abs(gy - prev) + amp + last.amp) * SP_SHIFT : FISH_X + 320;
     // hue and texture are fixed per pillar: smooth, ribbed or fluted
     const hue = PIPES[Math.floor(Math.random() * PIPES.length)], tex = Math.floor(Math.random() * 3);
-    pillars.push({ x, gy, top: gy - gap / 2, bot: gy + gap / 2, hue, tex, off: rnd(0, 30), passed: false });
+    pillars.push({
+      x, gy, gap, top: gy - gap / 2, bot: gy + gap / 2, hue, tex, off: rnd(0, 30), passed: false,
+      amp, rate: rnd(1.4, 2.2), ph: rnd(0, 6.3), // a moving gate swings around gy
+      pearl: Math.random() < ramp(3, 0.05, 0.6) ? (Math.random() < 0.5 ? -1 : 1) : 0, // -1 hugs the top pipe, 1 the bottom one
+    });
+    // a current only lifts, so it sits before a gate that is higher, clear of both pipes' caps
+    if (last && gy < prev - 15 && Math.random() < ramp(12, 0.05, 0.5)) {
+      const from = last.x + PW + CAP_W + 8, to = x - CAP_W - 8 - CUR_W;
+      if (to >= from) currents.push({ x: (from + to) / 2 });
+    }
     made++;
   };
 
   const fillPillars = () => {
-    while (pillars[pillars.length - 1].x < LW + SPACING) spawn(pillars[pillars.length - 1].x + SPACING);
+    while (pillars[pillars.length - 1].x < LW + AHEAD) spawn();
   };
 
   const newGame = () => {
     fish = { y: (topMargin + floorY) / 2, vy: 0, p: GRAVITY / BUOY };
-    pillars = []; bubbles = [];
+    pillars = []; currents = []; bubbles = []; pops = []; chunk = { kind: 'free', left: 3, dir: 1 }; // the first gates are free ones
     started = false; over = false; holding = false;
-    score = 0; made = 0; dist = 0; trailAcc = 0; shake = 0;
+    score = 0; gates = 0; made = 0; dist = 0; clock = 0; trailAcc = 0; shake = 0;
     clearTimeout(overTimer);
     $over.classList.remove('show');
     $hint.hidden = false;
-    spawn(FISH_X + 320);
+    spawn();
     fillPillars();
+    renderHud();
+  };
+
+  const addScore = n => {
+    score += n;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem(KEY, String(best)); } catch (e) { /* storage unavailable */ }
+    }
     renderHud();
   };
 
@@ -298,15 +349,26 @@
   };
 
   const step = (dt, t) => {
-    const speed = Math.min(SPEED_MAX, SPEED_START + score * SPEED_STEP);
+    const speed = Math.min(SPEED_MAX, SPEED_START + gates * SPEED_STEP);
     fish.p = Math.max(0, Math.min(1, fish.p + (holding ? INFLATE : -DEFLATE) * dt));
     const r = radius(fish.p);
     fish.vy += (GRAVITY - BUOY * fish.p - DRAG * fish.vy) * dt; // y grows downward
+    for (const c of currents) if (FISH_X > c.x && FISH_X < c.x + CUR_W) fish.vy -= CUR_ACC * dt;
     fish.y += fish.vy * dt;
     if (fish.y - r < 0) { fish.y = r; if (fish.vy < 0) fish.vy = 0; }
 
-    dist += speed * dt;
-    pillars.forEach(p => { p.x -= speed * dt; });
+    dist += speed * dt; clock += dt;
+    pillars.forEach(p => {
+      p.x -= speed * dt;
+      if (p.amp) {
+        const g = p.gy + p.amp * Math.sin(clock * p.rate + p.ph);
+        p.top = g - p.gap / 2; p.bot = g + p.gap / 2;
+      }
+    });
+    for (let i = currents.length - 1; i >= 0; i--) {
+      currents[i].x -= speed * dt;
+      if (currents[i].x < -CUR_W) currents.splice(i, 1);
+    }
     while (pillars[0].x < -PW - CAP_W) pillars.shift();
     fillPillars();
 
@@ -318,14 +380,21 @@
       if (hitsRect(FISH_X, fish.y, hr, p.x, -Infinity, p.x + PW, top) || hitsRect(FISH_X, fish.y, hr, p.x, bot, p.x + PW, Infinity) ||
         hitsRect(FISH_X, fish.y, hr, p.x - CAP_W, top - CAP_H, p.x + PW + CAP_W, top) ||
         hitsRect(FISH_X, fish.y, hr, p.x - CAP_W, bot, p.x + PW + CAP_W, bot + CAP_H)) return die(t);
-      if (!p.passed && p.x + PW / 2 < FISH_X) {
-        p.passed = true; score++;
-        playGate(score);
-        if (score > best) {
-          best = score;
-          try { localStorage.setItem(KEY, String(best)); } catch (e) { /* storage unavailable */ }
+      if (p.pearl) {
+        const py = p.pearl < 0 ? top + PEARL_R + 5 : bot - PEARL_R - 5, dx = FISH_X - (p.x + PW / 2), dy = fish.y - py;
+        if (dx * dx + dy * dy < (hr + PEARL_R) ** 2) {
+          p.pearl = 0;
+          addScore(1); playPearl();
+          pops.push({ y: fish.y - r - 34, t });
         }
-        renderHud();
+      }
+      if (!p.passed && p.x + PW / 2 < FISH_X) {
+        p.passed = true; gates++;
+        const perfect = Math.abs(fish.y - (top + bot) / 2) < (bot - top) * PERFECT;
+        addScore(perfect ? 2 : 1); playGate(gates);
+        if (perfect) {
+          pops.push({ y: fish.y - r - 14, t, key: 'perfect' });
+        }
       }
     }
 
@@ -500,6 +569,13 @@
       disc(a.x * LW + Math.sin(t / 700 + a.ph) * 6, y * floorY, a.r);
     });
 
+    currents.forEach(c => {
+      if (c.x > LW) return; // spawned ahead of the view
+      ctx.fillStyle = 'rgba(255,255,255,.17)'; ctx.fillRect(c.x, 0, CUR_W, floorY);
+      ctx.fillStyle = 'rgba(232,255,250,.6)';
+      for (let i = 0; i < 7; i++) disc(c.x + 7 + (i * 17) % 33, floorY - (t * (0.1 + (i % 3) * 0.04) + i * 97) % floorY, 2.5 + i % 3);
+    });
+
     pillars.forEach(p => {
       const { top, bot } = p;
       drawPipe(p, -30, top - CAP_H, top - CAP_H);
@@ -518,6 +594,14 @@
     ctx.fillStyle = '#dcbc7c';
     pillars.forEach(p => { ctx.beginPath(); ctx.ellipse(p.x + PW / 2, floorY + 3, 42, 9, 0, Math.PI, 0); ctx.fill(); });
 
+    pillars.forEach(p => {
+      if (!p.pearl) return;
+      const px = p.x + PW / 2, py = p.pearl < 0 ? p.top + PEARL_R + 5 : p.bot - PEARL_R - 5;
+      ctx.fillStyle = 'rgba(255,255,255,.3)'; disc(px, py, PEARL_R + 3 + Math.sin(t / 250 + p.ph) * 1.5);
+      ctx.fillStyle = '#f7e6ee'; disc(px, py, PEARL_R);
+      ctx.fillStyle = '#fff'; disc(px - 2, py - 2, PEARL_R * 0.35);
+    });
+
     bubbles.forEach(b => {
       const age = (t - b.t) / BUBBLE_MS;
       ctx.globalAlpha = 0.7 * (1 - age);
@@ -529,6 +613,17 @@
     const r = radius(fish.p);
     const fy = started ? fish.y : fish.y + Math.sin(t / 380) * 8;
     drawFish(FISH_X, fy, r, fish.p, fish.vy, t);
+    if (pops.length) {
+      ctx.font = '800 15px "Avenir Next Rounded", "Hiragino Maru Gothic ProN", "Trebuchet MS", sans-serif';
+      ctx.textAlign = 'center';
+      pops.forEach(o => {
+        const age = (t - o.t) / POP_MS, text = o.key ? tx[o.key] : '+1';
+        ctx.globalAlpha = 1 - age;
+        ctx.fillStyle = '#0b4a5a'; ctx.fillText(text, FISH_X + 1, o.y - age * 28 + 1);
+        ctx.fillStyle = '#fff6c9'; ctx.fillText(text, FISH_X, o.y - age * 28);
+      });
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
   };
 
@@ -543,6 +638,7 @@
       b.x += b.vx * dt; b.y += b.vy * dt;
       if (t - b.t > BUBBLE_MS) bubbles.splice(i, 1);
     }
+    for (let i = pops.length - 1; i >= 0; i--) if (t - pops[i].t > POP_MS) pops.splice(i, 1);
     shake = Math.max(0, shake - dt / 0.4);
     if (!helpOpen) render(t); // the help panel is opaque, so nothing behind it needs drawing
   };
