@@ -43,7 +43,7 @@
   #snd.off .wave { display: none; }
   #snd.off { opacity: .5; }
   #hint {
-    position: fixed; left: 50%; top: 24%; transform: translateX(-50%); width: max-content; max-width: 88vw;
+    position: fixed; left: 50%; top: 51.5%; transform: translate(-50%, -50%); /* the canyon's centre line at the start, where the bird will arrive */ width: max-content; max-width: 88vw;
     padding: 10px 20px; border-radius: 6px; background: rgba(45, 27, 61, .78); border-left: 4px solid var(--coral);
     text-align: center; font-size: 15px; font-weight: 800; line-height: 1.4; letter-spacing: .04em; pointer-events: none;
   }
@@ -103,18 +103,19 @@
   // The world is WH units tall and scaled to the viewport height; its width follows the (capped) column width.
   // Terrain is a pure function of the world x coordinate w = dist + screen x, so nothing is stored for it except the spires.
   const WH = 640, COL_MAX = 560, MID = 330;
-  const BX = 95, R = 11, HIT = 0.8; // the bird's fixed screen x, body radius and hit-circle share
+  const BX = 95, R = 11, HIT = 0.8; // the bird's resting screen x (it swoops in to it at the start), body radius and hit-circle share
   // a tap sets the climb speed (not adds to it), so the hop height is the same however fast the taps come
   const GRAVITY = 1600, HOP = 300, FALL_MAX = 600, FLAP_S = 0.22;
-  const SPEED_START = 220, SPEED_MAX = 400, SPEED_RAMP = 0.016, BOOST_ADD = 70, BOOST_T = 0.9;
+  const SPEED_START = 250, SPEED_MAX = 420, SPEED_RAMP = 0.03, BOOST_ADD = 70, BOOST_T = 0.9;
   // centre line = three sines, gently ramped in from the start; slopes stay within what repeated hops can follow
-  const A = [38, 12, 55], F = [0.008, 0.018, 0.0035], RAMP_FROM = 0.25, RAMP_LEN = 3000;
-  const GAP_START = 250, GAP_MIN = 150, GAP_SHRINK = 0.006, BREATH = 10;
-  const SPIRE_FIRST = 1200, SPIRE_GAP = 640, SPIRE_GAP_MIN = 300, SPIRE_SHRINK = 0.02, SPIRE_RAND = 220;
-  const PAIR_FROM = 6000, PAIR_P = 0.35; // later, a spire is often followed by one on the opposite wall: a slalom
-  const STAGE_LEN = 2500, STAGE_BONUS = 10, COMBO_S = 1.2, COMBO_MAX = 4, POP_MS = 700, BANNER_MS = 1400;
+  const A = [38, 12, 55], F = [0.008, 0.018, 0.0035], RAMP_FROM = 0.5, RAMP_LEN = 1500;
+  const GAP_START = 210, GAP_MIN = 150, GAP_SHRINK = 0.012, BREATH = 10;
+  const SPIRE_FIRST = 700, SPIRE_GAP = 480, SPIRE_GAP_MIN = 240, SPIRE_SHRINK = 0.03, SPIRE_RAND = 220;
+  const PAIR_FROM = 3500, PAIR_P = 0.35; // later, a spire is often followed by one on the opposite wall: a slalom
+  const STAGE_LEN = 1800, STAGE_BONUS = 10, COMBO_S = 1.2, COMBO_MAX = 4, POP_MS = 700, BANNER_MS = 1400;
   const GRAZE_D = 11, GRAZE_EVERY = 0.25, SCORE_PER = 40;
-  const SPARK_MS = 520, DUSK_LEN = 16000, STEP = 4;
+  const SPARK_MS = 520, DUSK_LEN = 10000, STEP = 4;
+  const ENTER_T = 0.55; // the start dash: the bird swoops in from off-screen while the canyon rushes past, untouchable
   const SCALE = [0, 2, 4, 7, 9];
 
   const cv = document.getElementById('cv');
@@ -130,7 +131,7 @@
   const TEXT = {
     en: {
       title: 'How to play',
-      hint: 'Tap to flap · hug the cliffs',
+      hint: 'Tap to start',
       items: [
         'You are a swift racing through a sunset canyon, flying as far as you can between the cliffs.',
         'Tap anywhere, or press Space, and the bird flaps and hops up a little; between taps it falls.',
@@ -149,7 +150,7 @@
     },
     ja: {
       title: '遊び方',
-      hint: 'タップで羽ばたく・崖ぎわを飛ぶ',
+      hint: 'タップでスタート',
       items: [
         'アマツバメになって、夕焼けの峡谷の崖の間をどこまで飛べるかに挑戦するゲームです。',
         '画面のどこかをタップ（またはスペースキー）すると羽ばたいて少し跳ね上がり、タップの合間には落ちていきます。',
@@ -202,7 +203,7 @@
     if (open) { placeHelp(); $hclose.focus(); }
   };
 
-  let bird, spires, sparks, pops, banner, stage, combo, lastGraze, clock, started, over, overTimer, bonus, shown, dist, boost, grazeAcc, hops, nextSpire, shake, ph;
+  let bird, spires, sparks, pops, banner, stage, combo, lastGraze, clock, started, over, overTimer, bonus, shown, dist, boost, grazeAcc, hops, nextSpire, shake, ph, enter, bx;
   let W = 0, H = 0, dpr = 1, s = 1, colX = 0, colW = 0, LW = 0, best = 0;
 
   try { best = parseInt(localStorage.getItem(KEY), 10) || 0; } catch (e) { /* storage unavailable */ }
@@ -238,6 +239,7 @@
   };
   const playGraze = n => tone(1175 * 2 ** (SCALE[n - 1] / 12), 0, 0.07, 'square', 0.04);
   const playStage = () => [0, 4, 7, 12].forEach((st, i) => tone(523 * 2 ** (st / 12), i * 0.06, 0.18, 'triangle', 0.1));
+  const playStart = () => [0, 7, 12].forEach((st, i) => tone(330 * 2 ** (st / 12), i * 0.07, 0.16, 'triangle', 0.1));
   const playOver = () => [5, 1, -4].forEach((st, i) => tone(330 * 2 ** (st / 12), i * 0.1, 0.3, 'sawtooth', 0.08));
 
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -280,7 +282,7 @@
   const newGame = () => {
     ph = [rnd(0, 6.3), rnd(0, 6.3), rnd(0, 6.3), rnd(0, 6.3)];
     spires = []; sparks = []; pops = []; banner = null; stage = 0; combo = 0; lastGraze = -1e9; clock = 0;
-    started = false; over = false;
+    started = false; over = false; enter = 0; bx = BX;
     bonus = 0; dist = 0; boost = 0; grazeAcc = 0; hops = 0; shake = 0; nextSpire = SPIRE_FIRST;
     bird = { y: cy(BX), vy: 0, flap: 0 };
     clearTimeout(overTimer);
@@ -320,6 +322,17 @@
   const step = (dt, t) => {
     const speed = speedNow();
     boost = Math.max(0, boost - dt / BOOST_T);
+    if (enter < ENTER_T) {
+      enter += dt;
+      const e = Math.min(1, enter / ENTER_T);
+      bx = BX - (BX + 40) * (1 - e) ** 3;
+      dist += speed * dt; clock += dt;
+      fillSpires();
+      bird.y = cy(dist + bx);
+      if (enter >= ENTER_T) { bx = BX; bird.vy = -HOP; bird.flap = 1; }
+      renderHud();
+      return;
+    }
     bird.vy = Math.min(FALL_MAX, bird.vy + GRAVITY * dt);
     bird.y += bird.vy * dt;
     bird.flap = Math.max(0, bird.flap - dt / FLAP_S);
@@ -354,7 +367,8 @@
 
   const hop = () => {
     if (helpOpen || over) return;
-    if (!started) { started = true; $hint.hidden = true; }
+    if (!started) { started = true; $hint.hidden = true; boost = 1; playStart(); return; }
+    if (enter < ENTER_T) return;
     bird.vy = -HOP; bird.flap = 1;
     playHop(hops++);
   };
@@ -415,10 +429,10 @@
   glow.addColorStop(0, 'rgba(255,240,196,.9)');
   glow.addColorStop(1, 'rgba(255,240,196,0)');
 
-  const drawBird = (y, vy, flap, t) => {
-    const tip = 3 - 20 * flap + (started ? 0 : Math.sin(t / 130) * 3);
+  const drawBird = (x, y, vy, flap) => {
+    const tip = 3 - 20 * flap;
     ctx.save();
-    ctx.translate(BX, y);
+    ctx.translate(x, y);
     ctx.rotate(over ? 1.2 : clamp(vy / 900, -0.45, 0.6));
     ctx.fillStyle = '#2d2250';
     ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-20, -5.5); ctx.lineTo(-15, 0); ctx.lineTo(-20, 5.5); ctx.closePath(); ctx.fill();
@@ -514,15 +528,14 @@
     });
     ctx.globalAlpha = 1;
 
-    const by = started ? bird.y : bird.y + Math.sin(t / 380) * 6;
-    drawBird(by, bird.vy, bird.flap, t);
+    if (started) drawBird(bx, bird.y, bird.vy, bird.flap);
     ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#2d1b3d';
     pops.forEach(o => {
       const age = (t - o.t) / POP_MS;
       ctx.globalAlpha = 1 - age; ctx.lineWidth = 4;
       ctx.font = `italic 800 ${14 + o.n * 3}px "Avenir Next", "Hiragino Kaku Gothic ProN", system-ui, sans-serif`;
       const text = '+' + o.n;
-      ctx.strokeText(text, BX, by - 24 - age * 26); ctx.fillStyle = '#ffd98a'; ctx.fillText(text, BX, by - 24 - age * 26);
+      ctx.strokeText(text, BX, bird.y - 24 - age * 26); ctx.fillStyle = '#ffd98a'; ctx.fillText(text, BX, bird.y - 24 - age * 26);
     });
     if (banner !== null) {
       const age = (t - banner) / BANNER_MS, text = `${tx.stage} ${stage + 1}`;
