@@ -30,6 +30,11 @@
   #wind i { display: block; width: 100%; height: 100%; background: linear-gradient(var(--brass), #b98524); transform-origin: left; transform: scaleX(1); }
   #wind.low i { background: var(--copper); animation: tick .5s steps(2) infinite; }
   @keyframes tick { 50% { opacity: .35; } }
+  #pips { display: flex; justify-content: center; gap: 6px; margin-top: 6px; }
+  #pips i { width: 10px; height: 10px; border: 2px solid var(--brass); border-radius: 50%; background: rgba(36, 26, 18, .8); }
+  #pips i.on { background: var(--brass); }
+  #pips.fade i.on { animation: tick .5s steps(2) infinite; }
+  #pips.hot i.on { background: var(--ivory); border-color: var(--ivory); box-shadow: 0 0 8px var(--brass); }
   button {
     width: 42px; height: 42px; border: 2px solid var(--brass); border-radius: 8px; padding: 0; box-shadow: inset 0 0 0 2px var(--walnut), inset 0 0 0 3.5px rgba(224, 169, 63, .45); color: var(--brass); cursor: pointer;
     display: grid; place-items: center; background: rgba(36, 26, 18, .78);
@@ -82,7 +87,7 @@
 <canvas id="cv"></canvas>
 <div id="hud">
   <button id="rst" data-aria="restart"><svg viewBox="0 0 24 24"><path d="M19.05 14.57A7.5 7.5 0 1 1 15.75 5.5"/><path class="solid" d="M17.35 2.73L18.69 7.2L14.15 8.27Z"/></svg></button>
-  <div id="tally"><b id="score">0</b><small><span data-t="best"></span> <span id="best">0</span></small><div id="wind"><i id="windfill"></i></div></div>
+  <div id="tally"><b id="score">0</b><small><span data-t="best"></span> <span id="best">0</span></small><div id="wind"><i id="windfill"></i></div><div id="pips"></div></div>
   <div class="ctl">
   <button id="snd" data-aria="sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path class="wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>
   <button id="qbtn" data-aria="help"><svg viewBox="0 0 24 24"><path d="M8.8 9.2a3.3 3.3 0 1 1 4.6 3c-.9.5-1.4 1-1.4 2"/><path d="M12 17.8v.1"/></svg></button>
@@ -104,11 +109,11 @@
   const WH = 640, COL_MAX = 520, CEIL = 170, FLOOR = 500, R = 12, BX = 64, HIT = 0.8; // BX is low so a phone still shows about a second ahead
   const TRANSIT = 0.24; // a full flip always takes this long; gravity is derived from it so spacing can be set in seconds
   const LANE_TOP = CEIL + R, LANE_BOT = FLOOR - R, ACC = 2 * (LANE_BOT - LANE_TOP) / (TRANSIT * TRANSIT);
-  const SPEED_START = 190, SPEED_MAX = 330, SPEED_RAMP = 0.02;
-  const REACT_START = 0.34, REACT_MIN = 0.15, REACT_RAMP = 0.00003, SAME_GAP = 50; // reaction time left between hazards on opposite sides
-  const DRAIN_START = 0.035, DRAIN_END = 0.06, DRAIN_LEN = 8000, STAGE_WIND = 0.1, SAFE_WIND = 0.05, RISK_WIND = 0.12;
-  const FIRST_X = 520, STAGE_LEN = 2000, STAGE_BONUS = 10, SCORE_PER = 40, KEY_R = 9;
-  const CHAIN_S = 1.2, POP_MS = 700, BANNER_MS = 1400, SPARK_MS = 520, SUB = 1 / 120;
+  const SPEED_START = 220, SPEED_MAX = 330, SPEED_RAMP = 0.03;
+  const REACT_START = 0.28, REACT_MIN = 0.15, REACT_RAMP = 0.000037, SAME_GAP = 50; // reaction time left between hazards on opposite sides
+  const DRAIN_START = 0.05, DRAIN_END = 0.08, DRAIN_LEN = 6000, STAGE_WIND = 0.1, SAFE_WIND = 0.08, RISK_WIND = 0.2, WARN_WIND = 0.3, RESCUE_WIND = 0.35;
+  const FIRST_X = 360, STAGE_LEN = 1400, STAGE_BONUS = 10, SCORE_PER = 40, KEY_R = 9;
+  const CHAIN_S = 4, CHAIN_NEED = 5, BURST_S = 4, BURST_BOOST = 1.5, GRACE_S = 0.7, GRACE_HOLD = 0.8, BURST_WIND = 0.4, BEAT_S = 3, POP_MS = 700, BANNER_MS = 1400, SPARK_MS = 520, SUB = 1 / 120;
   const GEAR_PAD = 3, BOB_R = 13, ROD_W = 3, SWING = 0.5, SWING_PER = 2.3, BRACKET_W = 44;
   const SCALE = [0, 2, 4, 7, 9], TAU = Math.PI * 2;
 
@@ -124,6 +129,8 @@
   const $cause = document.getElementById('cause');
   const $final = document.getElementById('final');
   const $snd = document.getElementById('snd');
+  const $pips = document.getElementById('pips');
+  const pips = Array.from({ length: CHAIN_NEED }, () => $pips.appendChild(document.createElement('i')));
 
   const TEXT = {
     en: {
@@ -132,7 +139,7 @@
       items: [
         'You are a wind-up mouse racing through a clock tower for as long as your spring lasts.',
         'Tap anywhere, or press Space, and gravity flips, dropping the mouse to the other side, floor or ceiling.',
-        'Brass winding keys rewind your spring, so grab them to keep running.',
+        'Brass winding keys rewind your spring, and five grabbed in quick succession set off a dash that smashes everything.',
         'The game is over when the spring runs out or you touch a gear, piston or pendulum.'
       ],
       help: 'Help',
@@ -141,6 +148,7 @@
       sound: 'Sound',
       best: 'BEST',
       stage: 'STAGE',
+      burst: 'Wound up!',
       crash: 'Clang!',
       unwound: 'Unwound',
       retry: 'Tap to retry',
@@ -152,7 +160,7 @@
       items: [
         'ゼンマイじかけのネズミになって、時計塔の中をゼンマイが続くかぎり走るゲームです。',
         '画面のどこかをタップ（またはスペースキー）すると重力が反転し、床と天井を行き来します。',
-        '真鍮の巻き鍵を取るとゼンマイが巻き戻るので、取りながら走り続けます。',
+        '真鍮の巻き鍵でゼンマイが巻き戻り、素早く5つ続けて取ると何でも壊す巻きダッシュが発動します。',
         'ゼンマイが切れるか、歯車・ピストン・振り子に触れるとゲームオーバーです。'
       ],
       help: 'ヘルプ',
@@ -161,6 +169,7 @@
       sound: 'サウンド',
       best: 'ベスト',
       stage: 'ステージ',
+      burst: 'フルゼンマイ！',
       crash: 'ガシャン！',
       unwound: 'ゼンマイ切れ',
       retry: 'タップでリトライ',
@@ -203,7 +212,7 @@
   };
 
   let m, hz, keys, sparks, pops, banner, stage, clock, started, over, cause, overTimer, bonus, shown, dist, wind, windShown, chain, lastKey, shake, slow, queued, flips;
-  let genX, prevEnd, prevSide;
+  let genX, prevEnd, prevSide, spawned, warned, burst, grace, held, boost, pipsShown;
   let W = 0, H = 0, dpr = 1, s = 1, colX = 0, colW = 0, LW = 0, best = 0;
 
   try { best = parseInt(localStorage.getItem(KEY), 10) || 0; } catch (e) { /* storage unavailable */ }
@@ -237,6 +246,9 @@
   const playKey = n => tone(988 * 2 ** (SCALE[Math.min(n, SCALE.length) - 1] / 12), 0, 0.12, 'triangle', 0.09);
   const playStage = () => [0, 4, 7, 12].forEach((st, i) => tone(523 * 2 ** (st / 12), i * 0.06, 0.18, 'triangle', 0.1));
   const playStart = () => [0, 7, 12].forEach((st, i) => tone(330 * 2 ** (st / 12), i * 0.07, 0.16, 'triangle', 0.1));
+  const playWarn = () => [0, 1].forEach(i => tone(247, i * 0.14, 0.1, 'square', 0.05));
+  const playBurst = () => [0, 4, 7, 12, 16].forEach((st, i) => tone(392 * 2 ** (st / 12), i * 0.05, 0.22, 'triangle', 0.1));
+  const playSmash = () => { tone(1400, 0, 0.04, 'square', 0.04); tone(180, 0, 0.12, 'sawtooth', 0.06); };
   const playCrash = () => [5, 1, -4].forEach((st, i) => tone(300 * 2 ** (st / 12), i * 0.08, 0.28, 'sawtooth', 0.08));
   const playUnwound = () => [0, -2, -5, -9].forEach((st, i) => tone(392 * 2 ** (st / 12), i * (0.12 + i * 0.05), 0.3, 'triangle', 0.09));
 
@@ -248,6 +260,12 @@
   const lane = side => surf(side) + dirOf(side) * R; // the mouse's centre while it stands on that surface
 
   const speedAt = w => Math.min(SPEED_MAX, SPEED_START + w * SPEED_RAMP);
+  const drainAt = d => DRAIN_START + (DRAIN_END - DRAIN_START) * Math.min(1, d / DRAIN_LEN);
+  // a brass piston is out for the first 45% of its cycle, pulls back, and thrusts out again after a flashing warning;
+  // it only ever opens a gap, so the pattern stays clearable by flipping like any other piston
+  const beatU = h => (clock / BEAT_S + h.bp) % 1;
+  const beatF = u => (u < 0.45 ? 1 : u < 0.52 ? 1 - (u - 0.45) / 0.07 : u < 0.86 ? 0 : (u - 0.86) / 0.14);
+  const lenOf = h => (h.beat ? h.h * beatF(beatU(h)) : h.h);
   const swingAt = (h, c) => h.amp * Math.sin(TAU * c / SWING_PER + h.ph);
   const bobAt = h => { const a = swingAt(h, clock); return [h.x + h.len * Math.sin(a), h.py + dirOf(h.side) * h.len * Math.cos(a)]; };
 
@@ -256,7 +274,7 @@
   const place = (spec, ext) => {
     const sp = speedAt(genX), react = Math.max(REACT_MIN, REACT_START - genX * REACT_RAMP);
     let gap = prevSide >= 0 && spec.side !== prevSide ? sp * (TRANSIT + react) + 2 * R * HIT + 16 : SAME_GAP;
-    gap += spec.extra * sp * (1 - 0.7 * Math.min(1, genX / 8000));
+    gap += spec.extra * sp * (1 - 0.7 * Math.min(1, genX / 5000));
     spec.x = prevEnd + gap + ext; spec.ext = ext;
     // a risk key on that hazard's own lane is dropped unless there is room to grab it and flip clear in time
     const clear = sp * (TRANSIT + react) + 24;
@@ -266,40 +284,51 @@
     return spec;
   };
   const gear = (side, extra) => { const r = Math.round(rnd(26, 34)); return place({ type: 'gear', side, r, ph: rnd(0, TAU), extra }, r + GEAR_PAD); };
-  const piston = (side, w, extra) => place({ type: 'piston', side, w, h: rnd(100, 170), extra }, w / 2);
+  const piston = (side, w, extra, beat) => place({ type: 'piston', side, w, h: rnd(100, 170), extra, beat, bp: rnd(0, 1) }, w / 2);
   const pendulum = (side, extra) => {
     const h = rnd(40, 70), py = surf(side) + dirOf(side) * h;
     // the weight stays clear of the opposite lane at the bottom of its swing, so it only threatens a flip in mid-air
     const len = Math.abs(lane(1 - side) - dirOf(side) * 45 - py);
     return place({ type: 'pend', side, w: BRACKET_W, h, py, len, amp: SWING, ph: rnd(0, TAU), extra }, BRACKET_W / 2 + len * Math.sin(SWING) + BOB_R);
   };
-  // A safe key sits on the lane that passes the hazard. A risk key sits on the hazard's own side just beyond it, so grabbing it
-  // means flipping early, and it can still be on the wrong lane when the next hazard arrives.
+  // The only reliable income is the risk key: it sits on the hazard's own side just beyond it, so grabbing it means flipping back early,
+  // and it can still be on the wrong lane when the next hazard arrives. A safe key (on the lane that passes the hazard) is a rescue:
+  // it is rare while the spring is healthy and common once it runs low, and the very first hazard always carries one to show what keys are.
   const addKey = (x, y, risk) => keys.push({ x, y, risk, ph: rnd(0, TAU), got: false });
   const safeKey = (h, p) => { if (Math.random() < p) addKey(h.x, lane(1 - h.side), false); };
   const riskKey = (h, p) => { if (Math.random() < p) addKey(h.x + h.ext + speedAt(h.x) * TRANSIT + 30, lane(h.side), true); };
 
+  // Patterns arrive in waves of four: three close together, then a breather. Gears and pistons come first, the zigzag and the brass beat pistons at stage 1,
+  // and the pendulum and gear-after-piston at stage 2; later stages only reweight the pool and lengthen the zigzag.
   const fillWorld = () => {
     while (genX < dist + LW + 300) {
       const st = Math.floor(genX / STAGE_LEN), side = Math.random() < 0.5 ? 0 : 1, pool = [0];
-      if (st >= 1) pool.push(1, 1);
-      if (st >= 2) pool.push(2, 2);
-      if (st >= 3) pool.push(3);
-      if (st >= 4) pool.push(4, 4);
-      const kind = pool[Math.floor(Math.random() * pool.length)], ex = rnd(0.15, 0.6);
-      const ps = st < 1 ? 0.8 : 0.45, pr = st < 1 ? 0.3 : Math.min(0.7, 0.4 + 0.1 * st);
-      if (kind <= 1) { const h = kind ? piston(side, rnd(110, 190), ex) : gear(side, ex); safeKey(h, ps); riskKey(h, pr); }
+      if (spawned >= 3) pool.push(1);
+      if (st >= 1) pool.push(2, 2);
+      if (st >= 2) pool.push(3, 4, 4);
+      if (st >= 3) pool.push(3, 4);
+      const kind = pool[Math.floor(Math.random() * pool.length)];
+      const ex = spawned === 0 ? 0.1 : spawned % 4 === 3 ? rnd(0.8, 1.1) : rnd(0.05, 0.3);
+      const due = wind - drainAt(dist) * (genX - dist - BX) / speedAt(genX); // the spring level when this hazard reaches the mouse, whatever the screen size
+      const ps = spawned === 0 ? 1 : due < RESCUE_WIND ? 0.7 : 0.08, pr = Math.min(0.5, 0.3 + 0.05 * st);
+      spawned++;
+      if (kind <= 1) {
+        const beat = kind === 1 && st >= 1 && Math.random() < 0.5; // narrow, so the mouse can cross it while it is pulled back
+        const h = kind ? piston(side, beat ? rnd(70, 100) : rnd(110, 190), ex, beat) : gear(side, ex);
+        safeKey(h, ps); riskKey(h, pr);
+        if (beat && Math.random() < 0.8) addKey(h.x, lane(h.side), true); // inside the channel: only reachable while it is pulled back
+      }
       else if (kind === 2) { // zigzag: the mouse has to flip between every gear; a key may hang mid-air in a flip
         let sd = side, prev = null;
         for (let i = 0, n = st >= 3 ? 3 : 2; i < n; i++, sd = 1 - sd) {
           const h = gear(sd, i ? rnd(0, 0.2) : ex);
-          if (prev && Math.random() < 0.7) addKey((prev.x + h.x) / 2, (CEIL + FLOOR) / 2, true);
+          if (prev && Math.random() < 0.5) addKey((prev.x + h.x) / 2, (CEIL + FLOOR) / 2, true);
           prev = h;
         }
       } else if (kind === 3) { // a piston straight into a gear on the other side
         const p = piston(side, 120, ex); safeKey(p, ps);
-        const g = gear(1 - side, 0); safeKey(g, ps);
-      } else { const h = pendulum(side, ex); safeKey(h, ps); }
+        const g = gear(1 - side, 0); safeKey(g, ps); riskKey(g, pr);
+      } else { const h = pendulum(side, ex); safeKey(h, ps); riskKey(h, pr); }
     }
     while (hz.length && hz[0].x + 300 < dist) hz.shift();
     while (keys.length && keys[0].x < dist - 60) keys.shift();
@@ -308,17 +337,17 @@
   const newGame = () => {
     hz = []; keys = []; sparks = []; pops = []; banner = null; stage = 0; clock = 0; chain = 0; lastKey = -1e9; flips = 0;
     started = false; over = false; cause = ''; bonus = 0; dist = 0; wind = 1; shake = 0; slow = 1; queued = false;
-    genX = FIRST_X; prevEnd = FIRST_X; prevSide = -1;
+    genX = FIRST_X; prevEnd = FIRST_X; prevSide = -1; spawned = 0; warned = false; burst = 0; grace = 0; held = 0; boost = 1;
     m = { side: 1, y: lane(1), vy: 0, fly: false };
     clearTimeout(overTimer);
     $over.classList.remove('show');
     $hint.hidden = false;
     fillWorld();
-    shown = -1; windShown = -1; // force the next renderHud to redraw
+    shown = -1; windShown = -1; pipsShown = ''; // force the next renderHud to redraw
     renderHud();
   };
 
-  const scoreNow = () => Math.floor(dist / SCORE_PER) + bonus;
+  const scoreNow = () => Math.floor(dist / SCORE_PER + bonus);
   // written on death and when the page is hidden, not on every point of a record run
   const saveBest = () => { try { localStorage.setItem(KEY, String(best)); } catch (e) { /* storage unavailable */ } };
   const renderHud = () => {
@@ -328,10 +357,18 @@
       if (n > best) best = n;
       $score.textContent = n; $best.textContent = best;
     }
+    const lit = burst > 0 ? Math.ceil(burst / BURST_S * CHAIN_NEED) : chain; // during a dash the pips drain with the time left
+    const pk = lit + (burst > 0 ? (burst < 1 ? 'bx' : 'b') : chain && clock - lastKey > CHAIN_S - 1 ? 'x' : '');
+    if (pk !== pipsShown) {
+      pipsShown = pk;
+      pips.forEach((e, i) => e.classList.toggle('on', i < lit));
+      $pips.classList.toggle('hot', burst > 0);
+      $pips.classList.toggle('fade', pk.endsWith('x'));
+    }
     if (Math.abs(wind - windShown) > 0.002) {
       windShown = wind;
       $windFill.style.transform = `scaleX(${Math.max(0, wind)})`;
-      $wind.classList.toggle('low', wind < 0.25);
+      $wind.classList.toggle('low', wind < WARN_WIND);
     }
   };
   const renderOver = () => { $cause.textContent = tx[cause]; $final.textContent = tx.final(shown); };
@@ -351,31 +388,35 @@
   const touching = (mx, my) => {
     const hr = R * HIT;
     for (const h of hz) {
-      if (Math.abs(mx - h.x) > 330) continue;
+      if (h.dead || Math.abs(mx - h.x) > 330) continue;
       if (h.type === 'gear') {
         const dx = mx - h.x, dy = my - surf(h.side), rr = h.r + GEAR_PAD + hr;
-        if (dx * dx + dy * dy < rr * rr) return true;
+        if (dx * dx + dy * dy < rr * rr) return h;
         continue;
       }
-      const y0 = surf(h.side), y1 = y0 + dirOf(h.side) * h.h;
+      const y0 = surf(h.side), y1 = y0 + dirOf(h.side) * lenOf(h);
       const nx = clamp(mx, h.x - h.w / 2, h.x + h.w / 2), ny = clamp(my, Math.min(y0, y1), Math.max(y0, y1));
-      if ((mx - nx) ** 2 + (my - ny) ** 2 < hr * hr) return true;
+      if ((mx - nx) ** 2 + (my - ny) ** 2 < hr * hr) return h;
       if (h.type === 'pend') {
         const [bx, by] = bobAt(h), rr = BOB_R + hr;
-        if ((mx - bx) ** 2 + (my - by) ** 2 < rr * rr) return true;
+        if ((mx - bx) ** 2 + (my - by) ** 2 < rr * rr) return h;
         const vx = bx - h.x, vy = by - h.py, u = clamp(((mx - h.x) * vx + (my - h.py) * vy) / (vx * vx + vy * vy), 0, 1);
-        if ((mx - h.x - vx * u) ** 2 + (my - h.py - vy * u) ** 2 < (ROD_W + hr) ** 2) return true;
+        if ((mx - h.x - vx * u) ** 2 + (my - h.py - vy * u) ** 2 < (ROD_W + hr) ** 2) return h;
       }
     }
-    return false;
+    return null;
   };
+
+  // only a hazard on the side the mouse is on (either side, mid-flip) can still catch it when the dash ends
+  const threatened = speed => { const mx = dist + BX; return hz.some(h => !h.dead && (m.fly || h.side === m.side) && h.x - h.ext < mx + speed * 0.7 && h.x + h.ext > mx - 20); };
 
   const launch = () => { m.fly = true; m.vy = 0; playFlip(flips++); };
 
   const step = (dt, t) => {
-    const speed = speedAt(dist), n = Math.ceil(dt / SUB), h = dt / n;
+    const speed = speedAt(dist) * boost, n = Math.ceil(dt / SUB), h = dt / n;
     for (let i = 0; i < n; i++) {
       clock += h; dist += speed * h;
+      if (burst > 0) bonus += speed * h / SCORE_PER; // a dash doubles the distance score
       if (m.fly) {
         const tgt = 1 - m.side;
         m.vy += (tgt ? ACC : -ACC) * h; m.y += m.vy * h;
@@ -385,23 +426,44 @@
         }
       }
       const mx = dist + BX;
-      if (touching(mx, m.y)) return finish('crash', t);
+      const hit = touching(mx, m.y);
+      if (hit) {
+        if (burst <= 0 && grace <= 0) return finish('crash', t);
+        hit.dead = true; bonus += 2; shake = Math.max(shake, 0.25); playSmash();
+        for (let j = 0; j < 8; j++) sparks.push({ x: BX + rnd(-10, 14), y: m.y + rnd(-12, 12), vx: rnd(-60, 200), vy: rnd(-150, 150), r: rnd(1.5, 3.5), t, c: j % 2 ? '#c4622d' : '#e0a93f' });
+      }
       for (const k of keys) {
         if (k.got || Math.abs(k.x - mx) > R + KEY_R + 4) continue;
         if ((k.x - mx) ** 2 + (k.y - m.y) ** 2 < (R + KEY_R) ** 2) {
-          k.got = true; wind = Math.min(1, wind + (k.risk ? RISK_WIND : SAFE_WIND)); bonus += k.risk ? 2 : 1;
-          chain = clock - lastKey < CHAIN_S ? chain + 1 : 1; lastKey = clock;
-          playKey(chain);
-          pops.push({ t, y: m.y });
+          const dashing = burst > 0;
+          k.got = true; wind = Math.min(1, wind + (k.risk ? RISK_WIND : SAFE_WIND));
+          if (!dashing) chain++;
+          lastKey = clock;
+          const mult = dashing ? CHAIN_NEED : chain, pts = (k.risk ? 2 : 1) * mult;
+          bonus += pts;
+          playKey(mult);
+          pops.push({ t, y: m.y, n: pts });
+          if (chain >= CHAIN_NEED) {
+            chain = 0; burst = BURST_S; wind = Math.min(1, wind + BURST_WIND); shake = Math.max(shake, 0.5);
+            banner = { t, k: 'burst' }; playBurst();
+          }
           for (let j = 0; j < 5; j++) sparks.push({ x: BX + rnd(-6, 6), y: m.y + rnd(-6, 6), vx: rnd(-90, 60), vy: rnd(-90, 90), r: rnd(1.2, 2.6), t, c: '#f2c260' });
         }
       }
     }
-    wind -= (DRAIN_START + (DRAIN_END - DRAIN_START) * Math.min(1, dist / DRAIN_LEN)) * dt;
+    if (chain && clock - lastKey > CHAIN_S) chain = 0;
+    if (burst > 0) { burst -= dt; if (burst <= 0) { burst = 0; grace = GRACE_S; held = 0; } } // a short grace so the dash never ends inside a hazard
+    else if (grace > 0) { // the grace holds, for a while at most, while a hazard is too close to flip clear of
+      if (held < GRACE_HOLD && threatened(speed)) held += dt; else grace -= dt;
+    }
+    boost += ((burst > 0 ? BURST_BOOST : 1) - boost) * Math.min(1, dt * 5);
+    if (burst > 0 && Math.random() < 0.7) sparks.push({ x: BX + rnd(-12, 0), y: m.y + rnd(-10, 10), vx: rnd(-240, -90), vy: rnd(-50, 50), r: rnd(1.5, 3.2), t, c: `hsl(${Math.floor(clock * 700) % 360} 100% 65%)` });
+    wind -= drainAt(dist) * dt;
+    if (wind < WARN_WIND && !warned) { warned = true; playWarn(); } else if (wind > WARN_WIND + 0.15) warned = false;
     fillWorld();
     if (Math.floor(dist / STAGE_LEN) > stage) {
       stage++; bonus += STAGE_BONUS; wind = Math.min(1, wind + STAGE_WIND);
-      banner = t; // start time; a stage is far longer than the banner, so stage + 1 is still its number
+      banner = { t, k: 'stage' }; // a stage is far longer than the banner, so stage + 1 is still its number
       playStage();
     }
     if (wind <= 0) { wind = 0; finish('unwound', t); }
@@ -517,11 +579,15 @@
     ctx.restore();
   };
 
-  const drawKey = (x, y, ph, risk) => {
+  const drawKey = (x, y, ph, risk, star) => {
     const c = Math.cos(clock * 4 + ph);
     ctx.save();
     ctx.translate(x, y);
-    if (risk) ctx.scale(1.3, 1.3);
+    if (star) { // one key from a full chain: every key gets a pulsing rainbow halo, as any of them sets off the dash
+      ctx.scale(1.5, 1.5);
+      ctx.fillStyle = `hsl(${Math.floor(clock * 360) % 360} 100% 65% / .35)`; disc(0, 0, 18 + 3 * Math.sin(clock * 12));
+      ctx.fillStyle = 'rgba(255, 255, 255, .35)'; disc(0, 0, 11);
+    } else if (risk) ctx.scale(1.3, 1.3);
     ctx.fillStyle = risk ? 'rgba(255, 241, 184, .3)' : 'rgba(255, 217, 138, .18)'; disc(0, 0, 14);
     ctx.scale(0.35 + 0.65 * Math.abs(c), 1);
     ctx.strokeStyle = '#e0a93f'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
@@ -532,12 +598,18 @@
 
   // pointed teeth along the free end of a column, so nobody mistakes its tip for something to land on
   const drawPiston = (h, x) => {
-    const y0 = surf(h.side), d = dirOf(h.side), y1 = y0 + d * h.h, x0 = x - h.w / 2;
-    ctx.fillStyle = '#8c4a2b'; ctx.fillRect(x0, Math.min(y0, y1), h.w, h.h);
-    ctx.fillStyle = 'rgba(255, 190, 120, .16)'; ctx.fillRect(x0 + 5, Math.min(y0, y1), 6, h.h);
+    const L = lenOf(h), y0 = surf(h.side), d = dirOf(h.side), y1 = y0 + d * L, x0 = x - h.w / 2;
+    if (h.beat) {
+      const u = beatU(h);
+      ctx.fillStyle = u > 0.74 && u < 0.86 && Math.floor(clock * 14) % 2 ? '#ff6b4a' : '#5a3320';
+      ctx.fillRect(x0 - 4, d > 0 ? y0 : y0 - 8, h.w + 8, 8);
+      if (L < 4) return;
+    }
+    ctx.fillStyle = h.beat ? '#8a6a24' : '#8c4a2b'; ctx.fillRect(x0, Math.min(y0, y1), h.w, L);
+    ctx.fillStyle = 'rgba(255, 190, 120, .16)'; ctx.fillRect(x0 + 5, Math.min(y0, y1), 6, L);
     ctx.strokeStyle = 'rgba(40, 14, 8, .45)'; ctx.lineWidth = 2;
-    ctx.beginPath(); for (let k = 1; k * 26 < h.h; k++) { ctx.moveTo(x0, y0 + d * k * 26); ctx.lineTo(x0 + h.w, y0 + d * k * 26); } ctx.stroke();
-    ctx.fillStyle = '#c4622d';
+    ctx.beginPath(); for (let k = 1; k * 26 < L; k++) { ctx.moveTo(x0, y0 + d * k * 26); ctx.lineTo(x0 + h.w, y0 + d * k * 26); } ctx.stroke();
+    ctx.fillStyle = h.beat ? '#e0a93f' : '#c4622d';
     const n = Math.max(3, Math.round(h.w / 14)), tw = h.w / n;
     ctx.beginPath();
     for (let i = 0; i < n; i++) { ctx.moveTo(x0 + i * tw, y1); ctx.lineTo(x0 + (i + 0.5) * tw, y1 + d * 12); ctx.lineTo(x0 + (i + 1) * tw, y1); }
@@ -581,7 +653,7 @@
 
     hz.forEach(h => {
       const x = h.x - dist;
-      if (x < -330 || x > LW + 330) return;
+      if (h.dead || x < -330 || x > LW + 330) return;
       if (h.type === 'gear') {
         ctx.save(); ctx.translate(x, surf(h.side)); ctx.rotate((h.ph + clock * 1.6) * (h.side ? 1 : -1));
         const gp = gearPath(h.r + GEAR_PAD, true);
@@ -602,14 +674,29 @@
     ctx.fillStyle = 'rgba(224, 169, 63, .14)';
     for (let x = -(dist % 92); x < LW + 92; x += 92) { ctx.fillRect(x, CEIL - 80, 3, 60); ctx.fillRect(x + 46, FLOOR + 30, 3, 60); }
 
-    keys.forEach(k => { if (!k.got) { const x = k.x - dist; if (x > -20 && x < LW + 20) drawKey(x, k.y, k.ph, k.risk); } });
+    keys.forEach(k => { if (!k.got) { const x = k.x - dist; if (x > -20 && x < LW + 20) drawKey(x, k.y, k.ph, k.risk, chain === CHAIN_NEED - 1 && burst <= 0); } });
 
+    if (burst > 0) {
+      ctx.fillStyle = 'rgba(244, 232, 200, .22)';
+      for (let i = 0; i < 12; i++) ctx.fillRect(LW - ((dist * 1.6 + i * 97) % (LW + 120)), CEIL + 12 + (i * 53) % (FLOOR - CEIL - 24), 60 + (i % 3) * 25, 2);
+    }
     const prog = (m.y - LANE_TOP) / (LANE_BOT - LANE_TOP), sy = 1 - 2 * (1 - prog);
-    if (m.fly) {
-      for (let i = 3; i >= 1; i--) { ctx.globalAlpha = 0.16 * (4 - i); drawMouse(BX - i * 3, m.y - m.vy * 0.012 * i, sy); }
+    if (burst > 0) { // star power: a cycling rainbow aura, glowing corridor edges and a flaring mouse
+      const hue = Math.floor(clock * 360) % 360;
+      ctx.fillStyle = `hsl(${hue} 100% 60% / .22)`; disc(BX, m.y, 36);
+      ctx.fillStyle = `hsl(${(hue + 120) % 360} 100% 65% / .28)`; disc(BX, m.y, 26);
+      ctx.fillStyle = `hsl(${hue} 100% 60% / ${burst < 1 && Math.floor(clock * 10) % 2 ? 0.08 : 0.3})`;
+      ctx.fillRect(0, CEIL, LW, 8); ctx.fillRect(0, FLOOR - 8, LW, 8);
+    }
+    if (m.fly || burst > 0) {
+      const gap = burst > 0 ? 9 : 3;
+      for (let i = 3; i >= 1; i--) { ctx.globalAlpha = 0.16 * (4 - i); drawMouse(BX - i * gap, m.y - m.vy * 0.012 * i, sy); }
       ctx.globalAlpha = 1;
     }
+    if (grace > 0 && Math.floor(clock * 12) % 2) ctx.globalAlpha = 0.35;
     drawMouse(BX, m.y, sy);
+    if (burst > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 + 0.2 * Math.sin(clock * 20); drawMouse(BX, m.y, sy); ctx.globalCompositeOperation = 'source-over'; }
+    ctx.globalAlpha = 1;
 
     sparks.forEach(p => {
       ctx.globalAlpha = 1 - (t - p.t) / SPARK_MS;
@@ -622,9 +709,12 @@
       const age = (t - o.t) / POP_MS;
       ctx.globalAlpha = 0.8 * (1 - age); ctx.lineWidth = 3; ctx.strokeStyle = '#e0a93f';
       ctx.beginPath(); ctx.arc(BX, o.y, 12 + age * 26, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1 - age; ctx.font = `700 20px ${FONT}`; ctx.lineWidth = 4; ctx.strokeStyle = '#241a12'; ctx.fillStyle = '#f4e8c8';
+      ctx.strokeText(`+${o.n}`, BX + 36, o.y - 16 - age * 26); ctx.fillText(`+${o.n}`, BX + 36, o.y - 16 - age * 26);
     });
     if (banner !== null) {
-      const age = (t - banner) / BANNER_MS, text = `${tx.stage} ${stage + 1}`;
+      const age = (t - banner.t) / BANNER_MS, text = banner.k === 'burst' ? tx.burst : `${tx.stage} ${stage + 1}`;
+      if (banner.k === 'burst' && age < 0.15) { ctx.globalAlpha = 0.3 * (1 - age / 0.15); ctx.fillStyle = '#ffe9a8'; ctx.fillRect(0, 0, LW, WH); }
       ctx.globalAlpha = age < 0.15 ? age / 0.15 : 1 - (age - 0.15) / 0.85;
       ctx.font = `700 42px ${FONT}`;
       ctx.strokeStyle = '#241a12'; ctx.lineWidth = 8; ctx.strokeText(text, LW / 2, WH * 0.34);
@@ -650,7 +740,7 @@
       if (t - p.t > SPARK_MS) sparks.splice(i, 1);
     }
     for (let i = pops.length - 1; i >= 0; i--) if (t - pops[i].t > POP_MS) pops.splice(i, 1);
-    if (banner !== null && t - banner > BANNER_MS) banner = null;
+    if (banner !== null && t - banner.t > BANNER_MS) banner = null;
     shake = Math.max(0, shake - dt / 0.4);
     if (!helpOpen) render(t); // the help panel is opaque, so nothing behind it needs drawing
   };
