@@ -109,10 +109,10 @@
   const WH = 640, COL_MAX = 520, CEIL = 170, FLOOR = 500, R = 12, BX = 64, HIT = 0.8; // BX is low so a phone still shows about a second ahead
   const TRANSIT = 0.24; // a full flip always takes this long; gravity is derived from it so spacing can be set in seconds
   const LANE_TOP = CEIL + R, LANE_BOT = FLOOR - R, ACC = 2 * (LANE_BOT - LANE_TOP) / (TRANSIT * TRANSIT);
-  const SPEED_START = 220, SPEED_MAX = 330, SPEED_RAMP = 0.03;
+  const SPEED_START = 270, SPEED_MAX = 340, SPEED_RAMP = 0.03;
   const REACT_START = 0.28, REACT_MIN = 0.15, REACT_RAMP = 0.000037, SAME_GAP = 50; // reaction time left between hazards on opposite sides
-  const DRAIN_START = 0.05, DRAIN_END = 0.08, DRAIN_LEN = 6000, STAGE_WIND = 0.1, SAFE_WIND = 0.08, RISK_WIND = 0.2, WARN_WIND = 0.3, RESCUE_WIND = 0.35;
-  const FIRST_X = 360, STAGE_LEN = 1400, STAGE_BONUS = 10, SCORE_PER = 40, KEY_R = 9;
+  const DRAIN_START = 0.07, DRAIN_END = 0.085, DRAIN_LEN = 6000, STAGE_WIND = 0.1, SAFE_WIND = 0.08, RISK_WIND = 0.2, WARN_WIND = 0.3, RESCUE_WIND = 0.3;
+  const FIRST_X = 300, STAGE_LEN = 1400, STAGE_BONUS = 10, SCORE_PER = 40, KEY_R = 9;
   const CHAIN_S = 4, CHAIN_NEED = 5, BURST_S = 4, BURST_BOOST = 1.5, GRACE_S = 0.7, GRACE_HOLD = 0.8, BURST_WIND = 0.4, BEAT_S = 3, POP_MS = 700, BANNER_MS = 1400, SPARK_MS = 520, SUB = 1 / 120;
   const GEAR_PAD = 3, BOB_R = 13, ROD_W = 3, SWING = 0.5, SWING_PER = 2.3, BRACKET_W = 44;
   const SCALE = [0, 2, 4, 7, 9], TAU = Math.PI * 2;
@@ -211,7 +211,7 @@
     if (open) { placeHelp(); $hclose.focus(); }
   };
 
-  let m, hz, keys, sparks, pops, banner, stage, clock, started, over, cause, overTimer, bonus, shown, dist, wind, windShown, chain, lastKey, shake, slow, queued, flips;
+  let m, hz, keys, sparks, pops, banner, stage, clock, started, over, cause, overTimer, bonus, shown, dist, wind, windShown, chain, lastKey, shake, slow, queued, flips, crashAt, crashX, crashTx, spin, landed;
   let genX, prevEnd, prevSide, spawned, warned, burst, grace, held, boost, pipsShown;
   let W = 0, H = 0, dpr = 1, s = 1, colX = 0, colW = 0, LW = 0, best = 0;
 
@@ -310,7 +310,7 @@
       const kind = pool[Math.floor(Math.random() * pool.length)];
       const ex = spawned === 0 ? 0.1 : spawned % 4 === 3 ? rnd(0.8, 1.1) : rnd(0.05, 0.3);
       const due = wind - drainAt(dist) * (genX - dist - BX) / speedAt(genX); // the spring level when this hazard reaches the mouse, whatever the screen size
-      const ps = spawned === 0 ? 1 : due < RESCUE_WIND ? 0.7 : 0.08, pr = Math.min(0.5, 0.3 + 0.05 * st);
+      const ps = spawned === 0 ? 1 : due < RESCUE_WIND ? 0.6 : 0.06, pr = Math.min(0.45, 0.18 + 0.04 * st);
       spawned++;
       if (kind <= 1) {
         const beat = kind === 1 && st >= 1 && Math.random() < 0.5; // narrow, so the mouse can cross it while it is pulled back
@@ -336,7 +336,7 @@
 
   const newGame = () => {
     hz = []; keys = []; sparks = []; pops = []; banner = null; stage = 0; clock = 0; chain = 0; lastKey = -1e9; flips = 0;
-    started = false; over = false; cause = ''; bonus = 0; dist = 0; wind = 1; shake = 0; slow = 1; queued = false;
+    started = false; over = false; cause = ''; bonus = 0; dist = 0; wind = 1; shake = 0; slow = 1; queued = false; crashX = BX;
     genX = FIRST_X; prevEnd = FIRST_X; prevSide = -1; spawned = 0; warned = false; burst = 0; grace = 0; held = 0; boost = 1;
     m = { side: 1, y: lane(1), vy: 0, fly: false };
     clearTimeout(overTimer);
@@ -373,15 +373,21 @@
   };
   const renderOver = () => { $cause.textContent = tx[cause]; $final.textContent = tx.final(shown); };
 
-  const finish = (why, t) => {
+  const finish = (why, t, hit) => {
     over = true; cause = why;
     renderHud(); // the last frame may have crossed a score step
     saveBest();
     renderOver();
+    // after either ending the mouse drops to the floor, never squashed mid-flip or left upside down on the ceiling
+    crashAt = t; crashX = crashTx = BX; spin = 0; landed = false;
+    m.fly = false; m.vy = 0;
     if (why === 'crash') {
       shake = 1; playCrash();
+      // the mouse is bounced back clear of the hazard (never dropping through a column), then tumbles down
+      crashTx = clamp(hit.x - dist - hit.ext - R - 2, 24, BX); // the knockback stays on screen
+      if (m.y > (LANE_TOP + LANE_BOT) / 2) m.vy = -380;
       for (let i = 0; i < 14; i++) sparks.push({ x: BX + rnd(-8, 8), y: m.y + rnd(-8, 8), vx: rnd(-160, 60), vy: rnd(-140, 140), r: rnd(1.5, 3.5), t, c: i % 3 ? '#e0a93f' : '#c7d0d2' });
-    } else playUnwound();
+    } else playUnwound(); // the mouse droops and falls asleep where it stands
     overTimer = setTimeout(() => $over.classList.add('show'), why === 'crash' ? 700 : 900);
   };
 
@@ -428,7 +434,7 @@
       const mx = dist + BX;
       const hit = touching(mx, m.y);
       if (hit) {
-        if (burst <= 0 && grace <= 0) return finish('crash', t);
+        if (burst <= 0 && grace <= 0) return finish('crash', t, hit);
         hit.dead = true; bonus += 2; shake = Math.max(shake, 0.25); playSmash();
         for (let j = 0; j < 8; j++) sparks.push({ x: BX + rnd(-10, 14), y: m.y + rnd(-12, 12), vx: rnd(-60, 200), vy: rnd(-150, 150), r: rnd(1.5, 3.5), t, c: j % 2 ? '#c4622d' : '#e0a93f' });
       }
@@ -550,32 +556,53 @@
   const cogs = Array.from({ length: 7 }, (_, i) => ({ x: i / 7 + rnd(0, 0.08), y: rnd(150, 520), r: rnd(50, 105), k: rnd(0.08, 0.28), dir: i % 2 ? 1 : -1, brass: i % 3 === 0 }));
   const dials = Array.from({ length: 4 }, (_, i) => ({ x: i / 4 + rnd(0, 0.1), y: rnd(210, 450), r: rnd(24, 38) }));
 
-  const drawMouse = (x, y, sy) => {
-    const ph = dist * 0.09, a = (m.fly ? clock * 22 : dist * 0.05);
+  // chibi wind-up mouse: oversized head, round ears, big shiny eye and pink cheek; after a crash it is dizzy and sees stars
+  const drawMouse = (x, y, sy, t) => {
+    const dead = over && cause === 'crash', asleep = over && cause === 'unwound', age = over ? (t - crashAt) / 1000 : 0;
+    const ph = dist * 0.09, a = asleep ? 8 * (1 - Math.exp(-age * 3)) : m.fly ? clock * 22 : dist * 0.05; // the spring winds down to a stop
     ctx.save();
-    ctx.translate(x, y); ctx.scale(1, sy);
+    ctx.translate(x, y);
+    if (over) ctx.rotate(spin + (asleep ? 0.3 * Math.min(1, age / 0.4) : 0));
+    ctx.scale(1, sy);
     if (!m.fly) {
-      ctx.fillStyle = '#8f9a9c';
-      ctx.beginPath(); ctx.ellipse(-5 + Math.sin(ph) * 4, 9.5, 3.4, 2.4, 0, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(5 - Math.sin(ph) * 4, 9.5, 3.4, 2.4, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e58f9a';
+      ctx.beginPath(); ctx.ellipse(-4 + Math.sin(ph) * 4, 9.5, 3.4, 2.4, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(4 - Math.sin(ph) * 4, 9.5, 3.4, 2.4, 0, 0, TAU); ctx.fill();
     }
-    ctx.strokeStyle = '#c4622d'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(-11, 2); ctx.quadraticCurveTo(-21, 4 + Math.sin(ph) * 3, -22, -5); ctx.stroke();
-    ctx.fillStyle = '#c7d0d2'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 9.5, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#f4e8c8'; ctx.beginPath(); ctx.ellipse(1, 4, 9, 4, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#c7d0d2'; ctx.beginPath(); ctx.ellipse(11, -1.5, 7, 6, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#e58f65'; disc(7.5, -9, 4.6);
-    ctx.fillStyle = '#c4622d'; disc(17.6, -0.5, 1.8);
-    if (over && cause === 'crash') {
-      ctx.strokeStyle = '#1b1410'; ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.moveTo(11.8, -4.4); ctx.lineTo(15, -1.6); ctx.moveTo(15, -4.4); ctx.lineTo(11.8, -1.6); ctx.stroke();
+    ctx.strokeStyle = '#f0a0aa'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-10, 3); ctx.quadraticCurveTo(-20, 5 + Math.sin(ph) * 3, -21, -4); ctx.stroke();
+    ctx.fillStyle = '#d6dcde'; ctx.beginPath(); ctx.ellipse(0, 0.5, 12.5, 9.5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f7ecd2'; ctx.beginPath(); ctx.ellipse(1, 4.5, 8, 4, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#d6dcde'; disc(3, -9, 5); disc(12, -8.5, 4.6);
+    ctx.fillStyle = '#f2a3b0'; disc(3, -9, 2.6); disc(12, -8.5, 2.3);
+    ctx.fillStyle = '#d6dcde'; ctx.beginPath(); ctx.ellipse(9, -0.5, 9, 8, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f07c92'; disc(17, 0.5, 2);
+    if (dead) {
+      ctx.strokeStyle = '#2a1c18'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(10.4, -5.6); ctx.lineTo(14, -3.4); ctx.lineTo(10.4, -1.2); ctx.stroke();
+      ctx.fillStyle = '#f2c260';
+      for (let i = 0; i < 3; i++) {
+        const o = age * 5 + i * TAU / 3, sx = 8 + Math.cos(o) * 10, st = -17 + Math.sin(o) * 3;
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) { const r = k % 2 ? 1.3 : 3.2, ang = k * Math.PI / 5 - Math.PI / 2; ctx.lineTo(sx + Math.cos(ang) * r, st + Math.sin(ang) * r); }
+        ctx.fill();
+      }
+    } else if (asleep) {
+      ctx.strokeStyle = '#2a1c18'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(12.5, -3.6, 2, 0.2, Math.PI - 0.2); ctx.stroke();
+      ctx.fillStyle = '#f4e8c8'; ctx.font = `700 9px ${FONT}`; ctx.textAlign = 'center';
+      const base = ctx.globalAlpha;
+      for (let i = 0; i < 2; i++) {
+        const u = (age * 0.8 + i * 0.5) % 1;
+        ctx.globalAlpha = base * Math.min(1, age * 3) * (1 - u); ctx.fillText('z', 14 + u * 8 + i * 3, -14 - u * 14);
+      }
     } else {
-      ctx.fillStyle = '#1b1410'; disc(13.5, -3, 1.7);
-      ctx.fillStyle = '#fff'; disc(14, -3.5, 0.6);
+      ctx.fillStyle = '#2a1c18'; disc(12.5, -3, 2.1);
+      ctx.fillStyle = '#fff'; disc(13.1, -3.7, 0.7);
     }
     ctx.strokeStyle = '#e0a93f'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-3, -8); ctx.lineTo(-3, -14); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(-3, -16.5, 1 + 4.5 * Math.abs(Math.cos(a)), 3.2, 0, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4, -7); ctx.lineTo(-4, -14); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-4, -16.5, 1 + 4.5 * Math.abs(Math.cos(a)), 3.2, 0, 0, TAU); ctx.stroke();
     ctx.restore();
   };
 
@@ -588,11 +615,10 @@
       ctx.fillStyle = `hsl(${Math.floor(clock * 360) % 360} 100% 65% / .35)`; disc(0, 0, 18 + 3 * Math.sin(clock * 12));
       ctx.fillStyle = 'rgba(255, 255, 255, .35)'; disc(0, 0, 11);
     } else if (risk) ctx.scale(1.3, 1.3);
-    ctx.fillStyle = risk ? 'rgba(255, 241, 184, .3)' : 'rgba(255, 217, 138, .18)'; disc(0, 0, 14);
-    ctx.scale(0.35 + 0.65 * Math.abs(c), 1);
-    ctx.strokeStyle = '#e0a93f'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(0, -4.5, 4, 0, TAU); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, -0.5); ctx.lineTo(0, 8); ctx.moveTo(0, 5); ctx.lineTo(3.6, 5); ctx.moveTo(0, 8); ctx.lineTo(3.6, 8); ctx.stroke();
+    ctx.scale(1.6, 1.6); ctx.translate(0, 1.3); // the same wind-up key as on the mouse's back, its wings opening and closing as it turns
+    ctx.strokeStyle = '#e0a93f'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, -4.5, 1 + 4.5 * Math.abs(c), 3.2, 0, 0, TAU); ctx.stroke();
     ctx.restore();
   };
 
@@ -680,7 +706,7 @@
       ctx.fillStyle = 'rgba(244, 232, 200, .22)';
       for (let i = 0; i < 12; i++) ctx.fillRect(LW - ((dist * 1.6 + i * 97) % (LW + 120)), CEIL + 12 + (i * 53) % (FLOOR - CEIL - 24), 60 + (i % 3) * 25, 2);
     }
-    const prog = (m.y - LANE_TOP) / (LANE_BOT - LANE_TOP), sy = 1 - 2 * (1 - prog);
+    const prog = (m.y - LANE_TOP) / (LANE_BOT - LANE_TOP), sy = over ? 1 : 1 - 2 * (1 - prog);
     if (burst > 0) { // star power: a cycling rainbow aura, glowing corridor edges and a flaring mouse
       const hue = Math.floor(clock * 360) % 360;
       ctx.fillStyle = `hsl(${hue} 100% 60% / .22)`; disc(BX, m.y, 36);
@@ -694,8 +720,8 @@
       ctx.globalAlpha = 1;
     }
     if (grace > 0 && Math.floor(clock * 12) % 2) ctx.globalAlpha = 0.35;
-    drawMouse(BX, m.y, sy);
-    if (burst > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 + 0.2 * Math.sin(clock * 20); drawMouse(BX, m.y, sy); ctx.globalCompositeOperation = 'source-over'; }
+    drawMouse(crashX, m.y, sy, t);
+    if (burst > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 + 0.2 * Math.sin(clock * 20); drawMouse(crashX, m.y, sy, t); ctx.globalCompositeOperation = 'source-over'; }
     ctx.globalAlpha = 1;
 
     sparks.forEach(p => {
@@ -733,6 +759,15 @@
     if (over && cause === 'unwound' && !helpOpen) { // the tower coasts to a stop
       slow = Math.max(0, slow - dt / 0.7);
       dist += speedAt(dist) * slow * dt;
+    }
+    if (over && !helpOpen) {
+      crashX += (crashTx - crashX) * Math.min(1, dt * 14);
+      if (crashX - crashTx < 3) {
+        m.vy += ACC * dt; m.y += m.vy * dt;
+        if (!landed && cause === 'crash') spin -= 12 * dt;
+      }
+      if (landed) spin += (Math.round(spin / TAU) * TAU - spin) * Math.min(1, dt * 14);
+      if (m.y >= LANE_BOT && m.vy >= 0) { landed = true; m.y = LANE_BOT; m.vy = m.vy > 60 ? -m.vy * 0.35 : 0; }
     }
     for (let i = sparks.length - 1; i >= 0; i--) {
       const p = sparks[i];
